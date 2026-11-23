@@ -574,3 +574,71 @@ if (titleInput.value.length < 2) {
 |---|---|
 | ![내용 빈 값](docs/images/5-2-content-empty.png) | ![후](docs/images/5-2.png) |
 | | `focus()`로 내용 칸에 커서가 가 있음 |
+
+### 커밋 5-3: POST 요청으로 글 저장 + 새 글 상세 페이지로 이동
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/lib/backend/client.ts` | 보낼 본문(`body`)이 있으면 `Content-Type: application/json` 헤더 자동 추가 |
+| `src/app/posts/write/page.tsx` | 검사 통과 후 `POST /api/v1/posts` 요청, 성공하면 새 글 상세로 이동 |
+
+**요청 보내기**
+
+```tsx
+apiFetch(`/api/v1/posts`, {
+  method: "POST",
+  body: JSON.stringify({
+    title: titleInput.value,
+    content: contentTextarea.value,
+  }),
+})
+  .then((data) => {
+    alert(data.msg);
+    router.replace(`/posts/${data.data.id}`);
+  })
+  .catch((error) => {
+    alert(`${error.resultCode} : ${error.msg}`);
+  });
+```
+
+- `JSON.stringify(객체)`: 자바스크립트 객체를 JSON **문자열**로 바꿉니다. HTTP 본문에는 문자열만 실을 수 있기 때문입니다. 백엔드는 이 문자열을 `@RequestBody PostWriteReqBody`로 받아 다시 객체로 바꿉니다.
+- 백엔드 응답 모양
+
+  ```json
+  { "resultCode": "201-1", "msg": "35번 글이 작성되었습니다.", "data": { "id": 35, "title": "...", ... } }
+  ```
+
+  - `data.msg`: 안내 문구
+  - `data.data`: `RsData` 안의 `data` 필드 = 새로 만든 글(`PostDto`). 그래서 새 글 번호는 `data.data.id`입니다.
+- `router.replace`: 4-2와 같은 이유로 `replace`를 씁니다. 저장 후 뒤로 가기를 눌렀을 때 이미 제출한 글쓰기 폼으로 돌아가지 않게 합니다.
+
+**`apiFetch`에 헤더 자동 추가**
+
+```ts
+if (options?.body) {
+  const headers = new Headers(options.headers || {});
+
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json; charset=utf-8");
+  }
+
+  options.headers = headers;
+}
+```
+
+- `Content-Type` 헤더는 "본문이 어떤 형식인지" 알려 줍니다. 이 헤더가 없으면 스프링이 본문을 JSON으로 읽지 못해서 요청이 실패합니다(`415 Unsupported Media Type`).
+- 본문을 보내는 요청(작성, 수정, 댓글 작성 등)마다 헤더를 적지 않아도 되도록 공용 함수에 넣었습니다.
+- `options?.body`: `?.`는 **옵셔널 체이닝**입니다. `options`가 없으면(GET처럼 생략) 에러 없이 `undefined`가 됩니다.
+- `!headers.has(...)`: 부르는 쪽에서 직접 다른 `Content-Type`을 지정했다면 덮어쓰지 않습니다.
+
+**결과 화면** (5-2까지는 검사를 통과해도 콘솔에만 찍히고 저장되지 않았음)
+
+| ① 제목·내용 입력 | ② 저장 → 작성 완료 alert |
+|---|---|
+| ![입력](docs/images/5-3-before.png) | ![alert](docs/images/5-3-alert.png) |
+
+| ③ 확인 → 새 글(35번) 상세 페이지로 이동 |
+|---|
+| ![후](docs/images/5-3.png) |

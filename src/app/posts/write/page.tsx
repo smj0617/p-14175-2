@@ -1,6 +1,11 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
+import { useRouter } from "next/navigation";
+
 export default function Page() {
+  const router = useRouter();
+
   // 폼의 "저장" 버튼을 누르면(= 폼 제출) 실행
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     // 브라우저 기본 동작(페이지 새로고침하며 전송)을 막는다
@@ -44,9 +49,24 @@ export default function Page() {
       return;
     }
 
-    // 검사를 모두 통과했을 때만 여기까지 온다 (백엔드 전송은 5-3에서)
-    console.log("제목:", titleInput.value);
-    console.log("내용:", contentTextarea.value);
+    // 검사를 모두 통과했을 때만 여기까지 온다 → 백엔드에 저장 요청
+    apiFetch(`/api/v1/posts`, {
+      method: "POST",
+      // 자바스크립트 객체 → JSON 문자열
+      body: JSON.stringify({
+        title: titleInput.value,
+        content: contentTextarea.value,
+      }),
+    })
+      .then((data) => {
+        alert(data.msg);
+
+        // 방금 만든 글의 상세 페이지로 이동 (응답 data.data 가 새 글)
+        router.replace(`/posts/${data.data.id}`);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
   };
 
   return (
