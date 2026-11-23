@@ -33,6 +33,10 @@ export default function Page() {
           ))}
         </ul>
       )}
+
+      <div>
+        <Link href="/posts/write">글쓰기</Link>
+      </div>
     </>
   );
 }

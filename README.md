@@ -479,3 +479,47 @@ const router = useRouter();
 | `/posts/33`에서 "삭제" 클릭 | `33번 글을 정말로 삭제하시겠습니까?` 확인 → `33번 글이 삭제되었습니다.` 확인 → `/posts`로 이동, 33번이 목록에 없음 |
 
 4-1까지는 알림창을 닫아도 지워진 33번 글 화면에 그대로 머물렀습니다.
+
+---
+
+## 5. 글 작성
+
+### 커밋 5-1: `/posts/write` 입력 폼 + 글 목록에 "글쓰기" 링크
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/app/posts/write/page.tsx` (새 파일) | 제목·내용 입력 폼. 저장을 누르면 입력값을 콘솔에 출력 |
+| `src/app/posts/page.tsx` | 목록 아래에 `<Link href="/posts/write">글쓰기</Link>` 추가 |
+
+**`/posts/write`와 `/posts/[id]`**
+
+- `write`처럼 이름이 정해진 폴더가 `[id]` 같은 동적 폴더보다 **먼저** 선택됩니다. 그래서 `/posts/write`는 글쓰기 페이지, `/posts/3`은 상세 페이지로 갑니다.
+- 이 커밋 전에는 `/posts/write`가 `[id]`로 처리되어 `id`가 `"write"`가 됐습니다. 그래서 `/api/v1/posts/NaN`을 요청하고 에러 알림이 떴습니다.
+
+**폼 제출 흐름**
+
+```
+"저장" 클릭(또는 제목 칸에서 Enter) → <form>의 onSubmit 실행 → handleSubmit(e)
+```
+
+**핵심 개념**
+
+- `<form onSubmit={handleSubmit}>`: 폼 안의 `type="submit"` 버튼을 누르거나 입력칸에서 Enter를 치면 실행됩니다. 버튼의 `onClick`이 아니라 폼의 `onSubmit`에 거는 이유는 Enter 제출까지 한 곳에서 처리하기 위해서입니다.
+- `e.preventDefault()`: 폼의 기본 동작은 **페이지를 새로고침하면서** 입력값을 서버로 보내는 것입니다. 우리는 `fetch`로 직접 보낼 것이므로 이 기본 동작을 막습니다. 빠뜨리면 저장을 누르는 순간 페이지가 새로고침되어 입력값이 사라집니다.
+- `e: React.SyntheticEvent<HTMLFormElement>`: 매개변수 `e`(이벤트)의 타입입니다. "폼 요소에서 일어난 React 이벤트"라는 뜻입니다.
+- `e.currentTarget`: 이벤트가 걸린 요소, 즉 `<form>`입니다.
+- `form.elements.namedItem("title")`: 폼 안에서 `name="title"`인 입력칸을 찾습니다.
+- `as HTMLInputElement`: TypeScript에게 "이건 input 요소야"라고 알려 주는 **타입 단언**입니다. `namedItem`은 어떤 종류의 요소가 나올지 모르는 타입을 돌려주므로, 이렇게 알려 줘야 `.value`를 쓸 수 있습니다. Java의 형변환 `(HTMLInputElement) obj`와 비슷합니다.
+- `maxLength={100}`: 브라우저가 100자 넘게 입력하지 못하게 막습니다.
+
+**확인 방법**: 글 목록 → "글쓰기" → 제목·내용 입력 → 저장 → F12 Console에 입력값이 찍힘
+
+**결과 화면**
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/5-1-before.png) | ![후](docs/images/5-1-posts.png) |
+| `/posts` 글쓰기 링크 없음 | `/posts` 목록 아래에 "글쓰기" 링크 |
+| `/posts/write`는 상세 페이지로 처리되어 에러 알림 | ![후](docs/images/5-1.png) `/posts/write` 제목·내용 입력 폼 |
