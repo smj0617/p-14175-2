@@ -685,3 +685,35 @@ src/app/posts/[id]/edit/page.tsx  → /posts/35/edit
 | `/posts/35` 수정 링크 없음 | `/posts/35` 삭제 옆에 "수정" 링크 |
 | ![전](docs/images/6-1-before-edit.png) | ![후](docs/images/6-1.png) |
 | `/posts/35/edit` 페이지가 없어서 404 | `/posts/35/edit` 기존 제목·내용이 채워진 수정 폼 (제목 칸에 커서) |
+
+### 커밋 6-2: 입력 검사 + PUT 요청으로 수정 저장
+
+**변경 파일**: `src/app/posts/[id]/edit/page.tsx`
+
+새로 배우는 것은 거의 없고 앞에서 만든 조각을 합칩니다.
+
+| 부분 | 어디서 배웠나 |
+|---|---|
+| `trim()` + 빈 값/2자 미만 검사 + `focus()` + `return` | 5-2 글쓰기 검사 (규칙도 같음) |
+| `apiFetch(..., { method, body: JSON.stringify(...) })` | 5-3 글 작성 |
+| 성공 시 `alert(data.msg)` 후 `router.replace(...)` | 4-2 삭제, 5-3 작성 |
+
+**작성(POST)과 수정(PUT)의 차이**
+
+| | 글 작성 (5-3) | 글 수정 (6-2) |
+|---|---|---|
+| 요청 | `POST /api/v1/posts` | `PUT /api/v1/posts/35` |
+| 어떤 글? | 아직 없음 → 백엔드가 번호를 새로 정함 | 주소에 번호(`id`)를 넣어 알려 줌 |
+| 응답 `data` | 새 글(`PostDto`) → `data.data.id`로 이동 | 없음(`RsData<Void>`) → 이미 아는 `id`로 이동 |
+
+- 수정 응답에는 글 데이터가 없습니다(`"data": null`). 그래서 이동할 주소는 응답이 아니라 페이지가 이미 알고 있는 `id`(주소에서 꺼낸 값)로 만듭니다.
+
+**결과 화면** (35번 글 수정. 6-1까지는 저장을 눌러도 콘솔에만 찍히고 바뀌지 않았음)
+
+| ① 제목을 지우고 저장 → 검사 | ② 제목·내용 수정 |
+|---|---|
+| ![검사](docs/images/6-2-validate.png) | ![수정 입력](docs/images/6-2-before.png) |
+
+| ③ 저장 → 수정 완료 alert | ④ 확인 → 상세 페이지에 바뀐 내용 |
+|---|---|
+| ![alert](docs/images/6-2-alert.png) | ![후](docs/images/6-2.png) |

@@ -2,10 +2,12 @@
 
 import { apiFetch } from "@/lib/backend/client";
 import type { PostDto } from "@/type/post";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Page() {
+  const router = useRouter();
+
   const { id: idStr } = useParams<{ id: string }>();
   const id = Number(idStr);
 
@@ -33,9 +35,52 @@ export default function Page() {
       "content",
     ) as HTMLTextAreaElement;
 
-    // 아직은 콘솔에만 찍어 본다 (검사와 백엔드 전송은 6-2에서)
-    console.log("제목:", titleInput.value);
-    console.log("내용:", contentTextarea.value);
+    // 입력 검사 (5-2 글쓰기와 같은 규칙)
+    titleInput.value = titleInput.value.trim();
+
+    if (titleInput.value.length === 0) {
+      alert("제목을 입력해주세요.");
+      titleInput.focus();
+      return;
+    }
+
+    if (titleInput.value.length < 2) {
+      alert("제목을 2자 이상 입력해주세요.");
+      titleInput.focus();
+      return;
+    }
+
+    contentTextarea.value = contentTextarea.value.trim();
+
+    if (contentTextarea.value.length === 0) {
+      alert("내용을 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    if (contentTextarea.value.length < 2) {
+      alert("내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    // 수정은 PUT, 주소에 어떤 글인지(id)가 들어간다
+    apiFetch(`/api/v1/posts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        title: titleInput.value,
+        content: contentTextarea.value,
+      }),
+    })
+      .then((data) => {
+        alert(data.msg);
+
+        // 수정한 글의 상세 페이지로 돌아간다
+        router.replace(`/posts/${id}`);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
   };
 
   return (
