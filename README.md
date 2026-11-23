@@ -115,3 +115,44 @@ pnpm create next-app@16.4.6 p-14175-2 --ts --tailwind --eslint --app --src-dir -
   - `flex-grow`: `<main>`의 남는 공간을 모두 차지함
   - `flex items-center justify-center`: 내용을 세로·가로 가운데에 놓음
 - 기본 화면에서만 쓰던 `next/image`와 `public/` 안의 이미지 import도 함께 사라졌습니다.
+
+---
+
+## 2. 글 다건조회
+
+### 커밋 2-1: 백엔드 주소(.env)와 글 타입(PostDto) 정의
+
+**변경 파일**
+
+| 파일 | 역할 |
+|---|---|
+| `.env` (새 파일) | `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` 백엔드 주소 |
+| `src/type/post.ts` (새 파일) | 백엔드가 돌려주는 글 데이터의 모양(`PostDto` 타입) |
+| `.gitignore` | `!.env` 한 줄 추가 |
+
+**`.env`: 환경 변수 파일**
+
+- 백엔드 주소를 코드 여러 곳에 직접 쓰면, 주소가 바뀔 때 전부 찾아 고쳐야 합니다. `.env` 한 곳에 두고 코드에서는 `process.env.NEXT_PUBLIC_API_BASE_URL`로 읽습니다. 스프링의 `application.yml`과 비슷한 역할입니다.
+- 이름이 `NEXT_PUBLIC_`으로 시작해야 브라우저에서 실행되는 코드에서도 읽을 수 있습니다.
+- 브라우저에 그대로 보이는 값이라 비밀번호 같은 비밀값은 넣으면 안 됩니다.
+- create-next-app의 `.gitignore`는 `.env*`를 전부 커밋에서 뺍니다. 이 파일에는 비밀값이 없으므로 `!.env`(예외: 이 파일은 커밋함)를 추가했습니다.
+
+**`PostDto` 타입: 데이터 모양 약속**
+
+- 백엔드 `GET /api/v1/posts`의 응답 예시
+
+  ```json
+  [{ "id": 1, "createDate": "2026-...", "modifyDate": "2026-...", "title": "제목 1", "content": "내용 1" }]
+  ```
+
+- `type PostDto = { ... }`로 이 모양을 적어 두면, `post.titel`처럼 오타를 내거나 없는 필드를 쓸 때 TypeScript가 바로 빨간 줄로 알려 줍니다.
+- 백엔드 Java record와 비교
+
+  | Java (`PostDto`) | TypeScript |
+  |---|---|
+  | `int id` | `id: number` |
+  | `LocalDateTime createDate` | `createDate: string` (JSON에서는 날짜가 문자열로 옴) |
+  | `String title` | `title: string` |
+
+- `export`를 붙여서 다른 파일에서 `import type { PostDto } from "@/type/post"`로 가져다 씁니다.
+- 아직 이 타입을 쓰는 화면은 없습니다. 다음 커밋에서 사용합니다.
