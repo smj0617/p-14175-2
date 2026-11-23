@@ -876,3 +876,35 @@ setPostComments(postComments.filter((c) => c.id != commentId));
 | ① A의 삭제 클릭 → confirm | ② 확인 → 삭제 완료 alert | ③ 확인 → 같은 페이지에서 A만 사라짐 |
 |---|---|---|
 | ![confirm](docs/images/8-1-confirm.png) | ![alert](docs/images/8-1-alert.png) | ![후](docs/images/8-1.png) |
+
+---
+
+## 9. 댓글 작성
+
+### 커밋 9-1: 댓글 입력 폼 + 입력 검사
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+- 글 내용과 댓글 목록 사이에 "N번 글에 대한 댓글 작성" 폼을 넣었습니다.
+- 새로운 개념은 없습니다. **5-1(폼 제출) + 5-2(입력 검사)** 를 댓글용으로 옮긴 것입니다.
+
+| 단계 | 코드 | 처음 나온 곳 |
+|---|---|---|
+| 폼 제출 받기 | `<form onSubmit={handleCommentWriteFormSubmit}>` | 5-1 |
+| 새로고침 막기 | `e.preventDefault()` | 5-1 |
+| 입력칸 찾기 | `form.elements.namedItem("content") as HTMLTextAreaElement` | 5-1 |
+| 검사 | `trim()` → 빈 값 → 2자 미만, `alert` + `focus()` + `return` | 5-2 |
+
+- 백엔드 댓글 작성 API의 제약(`@NotBlank`, `@Size(min = 2, max = 100)`)에 맞춰 2자 미만을 막고, `maxLength={100}`으로 100자 넘게 입력하지 못하게 했습니다.
+- 검사를 통과하면 아직은 콘솔에만 찍습니다. 백엔드 전송은 9-2에서 합니다.
+
+**결과 화면** (35번 글)
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/8-1.png) | ![후](docs/images/9-1.png) |
+| 댓글 목록만 있음 | 댓글 작성 폼이 생김 |
+
+| ① 비운 채 작성 | ② `a` 한 글자로 작성 |
+|---|---|
+| ![빈 값](docs/images/9-1-empty.png) | ![2자 미만](docs/images/9-1-short.png) |

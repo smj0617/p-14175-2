@@ -108,6 +108,36 @@ export default function Page() {
     });
   };
 
+  // 댓글 작성 폼을 제출했을 때 실행 (5-1, 5-2 글쓰기 폼과 같은 방식)
+  const handleCommentWriteFormSubmit = (
+    e: React.SyntheticEvent<HTMLFormElement>,
+  ) => {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
+
+    contentTextarea.value = contentTextarea.value.trim();
+
+    if (contentTextarea.value.length === 0) {
+      alert("댓글 내용을 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    if (contentTextarea.value.length < 2) {
+      alert("댓글 내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    // 아직은 콘솔에만 찍어 본다 (백엔드 전송은 9-2에서)
+    console.log("댓글 내용:", contentTextarea.value);
+  };
+
   return (
     <>
       <h1>글 상세페이지</h1>
@@ -124,6 +154,26 @@ export default function Page() {
           수정
         </Link>
       </div>
+
+      <hr className="my-2" />
+
+      <h2>{id}번 글에 대한 댓글 작성</h2>
+
+      <form
+        className="flex gap-2 items-center"
+        onSubmit={handleCommentWriteFormSubmit}
+      >
+        <textarea
+          className="border p-2 rounded"
+          name="content"
+          placeholder="댓글 내용"
+          maxLength={100}
+          rows={3}
+        />
+        <button className="p-2 rounded border cursor-pointer" type="submit">
+          작성
+        </button>
+      </form>
 
       <hr className="my-2" />
 
