@@ -442,3 +442,40 @@ apiFetch(`/api/v1/posts/${id}`)
 |---|---|
 | ![전](docs/images/4-1-before.png) | ![후](docs/images/4-1.png) |
 | `/posts/1` 삭제 버튼 없음 | `/posts/1` 아래에 "삭제" 버튼이 생김 |
+
+### 커밋 4-2: 삭제 성공 후 글 목록으로 이동
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+```tsx
+const router = useRouter();
+...
+.then((data) => {
+  alert(data.msg);
+  router.replace("/posts");
+})
+```
+
+- `useRouter()`: **코드로** 페이지를 이동할 때 쓰는 도구입니다. `<Link>`는 사용자가 눌러야 이동하지만, `router`는 "삭제가 끝나면"처럼 원하는 시점에 이동시킬 수 있습니다.
+- `next/navigation`에서 가져옵니다. `useParams`와 같은 곳입니다.
+- `alert` 다음 줄에 있으므로, 사용자가 알림창의 확인을 누른 뒤에 이동합니다.
+
+**`push`와 `replace`의 차이**
+
+브라우저는 방문한 페이지를 기록(히스토리)에 쌓고, 뒤로 가기를 누르면 그 기록을 거꾸로 따라갑니다.
+
+| 방법 | 기록 변화 (`/posts` → `/posts/2`에서 삭제) | 뒤로 가기를 누르면 |
+|---|---|---|
+| `router.push("/posts")` | `/posts` → `/posts/2` → `/posts` (쌓음) | 지워진 `/posts/2`로 돌아가 404 알림 |
+| `router.replace("/posts")` | `/posts` → `/posts` (`/posts/2`를 바꿔치기) | 그 전 페이지로 감 |
+
+삭제된 글 페이지는 다시 볼 일이 없으므로 기록에서 지우는 `replace`를 씁니다.
+
+**결과 화면** (캡처용으로 만든 33번 글을 삭제)
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/4-2-before.png) | ![후](docs/images/4-2.png) |
+| `/posts/33`에서 "삭제" 클릭 | `33번 글을 정말로 삭제하시겠습니까?` 확인 → `33번 글이 삭제되었습니다.` 확인 → `/posts`로 이동, 33번이 목록에 없음 |
+
+4-1까지는 알림창을 닫아도 지워진 33번 글 화면에 그대로 머물렀습니다.

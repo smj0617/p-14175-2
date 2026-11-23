@@ -2,10 +2,13 @@
 
 import { apiFetch } from "@/lib/backend/client";
 import type { PostDto } from "@/type/post";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Page() {
+  // 코드로 페이지를 이동할 때 쓰는 도구
+  const router = useRouter();
+
   // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
   const { id: idStr } = useParams<{ id: string }>();
   const id = Number(idStr);
@@ -33,6 +36,9 @@ export default function Page() {
     })
       .then((data) => {
         alert(data.msg);
+
+        // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
+        router.replace("/posts");
       })
       .catch((error) => {
         alert(`${error.resultCode} : ${error.msg}`);
