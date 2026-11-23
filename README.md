@@ -532,3 +532,45 @@ const router = useRouter();
 | ![전](docs/images/5-1-before.png) | ![후](docs/images/5-1-posts.png) |
 | `/posts` 글쓰기 링크 없음 | `/posts` 목록 아래에 "글쓰기" 링크 |
 | `/posts/write`는 상세 페이지로 처리되어 에러 알림 | ![후](docs/images/5-1.png) `/posts/write` 제목·내용 입력 폼 |
+
+### 커밋 5-2: 입력값 검사 (빈 값, 2자 미만)
+
+**변경 파일**: `src/app/posts/write/page.tsx`
+
+백엔드에 보내기 **전에** 브라우저에서 먼저 입력값을 검사합니다. 잘못된 값이면 요청을 보내지 않고 바로 알려 줄 수 있어서 빠르고, 백엔드도 쓸데없는 요청을 받지 않습니다.
+
+```tsx
+titleInput.value = titleInput.value.trim();
+
+if (titleInput.value.length === 0) {
+  alert("제목을 입력해주세요.");
+  titleInput.focus();
+  return;
+}
+
+if (titleInput.value.length < 2) {
+  alert("제목을 2자 이상 입력해주세요.");
+  titleInput.focus();
+  return;
+}
+// 내용(contentTextarea)도 같은 방식으로 검사
+```
+
+**핵심 개념**
+
+- `trim()`: 앞뒤 공백을 없앱니다. `"   "`(공백만)은 `""`(빈 문자열)이 되어 "입력 안 함"으로 걸러집니다. 결과를 다시 `titleInput.value`에 넣어서 입력칸에도 정리된 값이 보이게 합니다.
+- `=== 0`: JavaScript의 "같다" 비교입니다. `==`는 타입을 멋대로 바꿔 비교하므로(`0 == ""`가 true) 보통 `===`를 씁니다.
+- `focus()`: 문제가 있는 입력칸으로 커서를 옮겨 바로 고쳐 쓸 수 있게 합니다.
+- `return`: **조기 종료**입니다. 검사에 걸리면 함수를 바로 끝내서 아래 코드(나중에 백엔드 전송)가 실행되지 않게 합니다. Java 메서드의 `return`과 같습니다.
+- 검사 순서: 제목 빈 값 → 제목 2자 미만 → 내용 빈 값 → 내용 2자 미만. 먼저 걸린 하나만 알려 줍니다.
+
+**결과 화면** (5-1까지는 빈 값으로 저장해도 아무 반응 없이 콘솔에만 찍혔음)
+
+| ① 아무것도 안 쓰고 저장 | ② 제목에 `a` 한 글자 |
+|---|---|
+| ![제목 빈 값](docs/images/5-2-title-empty.png) | ![제목 2자 미만](docs/images/5-2-title-short.png) |
+
+| ③ 제목은 OK, 내용 비움 | ④ ③에서 확인을 누른 뒤 |
+|---|---|
+| ![내용 빈 값](docs/images/5-2-content-empty.png) | ![후](docs/images/5-2.png) |
+| | `focus()`로 내용 칸에 커서가 가 있음 |

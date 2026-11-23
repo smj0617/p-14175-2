@@ -15,7 +15,36 @@ export default function Page() {
       "content",
     ) as HTMLTextAreaElement;
 
-    // 아직은 입력값을 콘솔에만 찍어 본다 (백엔드 전송은 5-3에서)
+    // 앞뒤 공백 제거 ("  안녕  " → "안녕")
+    titleInput.value = titleInput.value.trim();
+
+    if (titleInput.value.length === 0) {
+      alert("제목을 입력해주세요.");
+      titleInput.focus(); // 문제가 있는 칸으로 커서 이동
+      return; // 여기서 멈춤 (아래 코드 실행 안 함)
+    }
+
+    if (titleInput.value.length < 2) {
+      alert("제목을 2자 이상 입력해주세요.");
+      titleInput.focus();
+      return;
+    }
+
+    contentTextarea.value = contentTextarea.value.trim();
+
+    if (contentTextarea.value.length === 0) {
+      alert("내용을 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    if (contentTextarea.value.length < 2) {
+      alert("내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    // 검사를 모두 통과했을 때만 여기까지 온다 (백엔드 전송은 5-3에서)
     console.log("제목:", titleInput.value);
     console.log("내용:", contentTextarea.value);
   };
