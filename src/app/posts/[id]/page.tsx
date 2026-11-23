@@ -14,7 +14,11 @@ export default function Page() {
 
   // id가 바뀔 때마다 그 글을 다시 받아온다
   useEffect(() => {
-    apiFetch(`/api/v1/posts/${id}`).then(setPost);
+    apiFetch(`/api/v1/posts/${id}`)
+      .then(setPost)
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
   }, [id]);
 
   if (post == null) return <div>로딩중...</div>;

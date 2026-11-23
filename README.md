@@ -340,3 +340,69 @@ useEffect(() => {
 |---|---|
 | ![전](docs/images/3-1-before.png) | ![후](docs/images/3-1.png) |
 | `/posts/1` 페이지가 없어서 404 | `/posts/1` 글 번호, 제목, 내용 표시 |
+
+### 커밋 3-2: 없는 글일 때 에러 처리
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/lib/backend/client.ts` | 실패 응답(`!res.ok`)이면 백엔드가 보낸 JSON을 에러로 던짐 |
+| `src/app/posts/[id]/page.tsx` | `.catch`로 에러를 받아 `alert`로 알림 |
+
+**문제 상황 (3-1까지)**
+
+- 없는 글 `GET /api/v1/posts/9999`를 요청하면 백엔드는 이렇게 응답합니다.
+
+  ```
+  404
+  {"resultCode":"404-1","msg":"해당 데이터가 존재하지 않습니다.","data":null}
+  ```
+
+- `fetch`는 **404, 500이어도 실패로 보지 않습니다.** 서버와 통신만 되면 성공으로 처리합니다. 그래서 이 에러 JSON이 그대로 `setPost`에 들어갔고, 화면에는 번호·제목이 빈 칸인 이상한 상세 페이지가 나왔습니다.
+
+**해결 1: `apiFetch`에서 실패 응답을 에러로 바꾸기**
+
+```ts
+.then((res) => {
+  if (!res.ok) {
+    return res.json().then((errorData) => {
+      throw errorData;
+    });
+  }
+
+  return res.json();
+});
+```
+
+- `res.ok`: 상태 코드가 200번대(200~299)면 `true`입니다.
+- 실패면 본문(`{ resultCode, msg }`)을 읽은 뒤 `throw`로 던집니다. 던진 값은 `.then`들을 건너뛰고 가장 가까운 `.catch`로 갑니다.
+- 공용 함수에 넣었으므로, 앞으로 모든 페이지에서 실패 응답이 똑같이 에러로 처리됩니다. 2-3에서 공용 함수로 분리한 효과입니다.
+
+**해결 2: 페이지에서 `.catch`로 받기**
+
+```tsx
+apiFetch(`/api/v1/posts/${id}`)
+  .then(setPost)
+  .catch((error) => {
+    alert(`${error.resultCode} : ${error.msg}`);
+  });
+```
+
+- 성공하면 `.then(setPost)`, 실패하면 `.catch(...)`가 실행됩니다. Java의 `try { ... } catch (e) { ... }`와 같은 역할입니다.
+- `error`는 `apiFetch`가 던진 백엔드 JSON이므로 `error.resultCode`, `error.msg`를 꺼낼 수 있습니다.
+- 결과: `404-1 : 해당 데이터가 존재하지 않습니다.` 알림창이 뜨고, `post`는 `null` 그대로라 화면은 "로딩중..."에 머뭅니다.
+
+**확인 방법**: http://localhost:3000/posts/9999 접속
+
+> **알림창이 두 번 뜨는 이유**
+> 개발 모드(`pnpm dev`)에서는 React가 실수를 찾아내려고 `useEffect`를 일부러 두 번 실행합니다. 그래서 백엔드 요청도, 알림창도 두 번 생깁니다. 버그가 아니며 `pnpm build` 후 실행하면 한 번만 뜹니다.
+
+**결과 화면**
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/3-2-before.png) | ![후](docs/images/3-2.png) |
+| 에러 JSON이 글로 저장되어 번호·제목이 빈 칸 | `404-1 : 해당 데이터가 존재하지 않습니다.` 알림창이 뜨고, 확인을 누르면 "로딩중..."에 머묾 |
+
+알림창은 브라우저 바깥 창이라 캡처에 찍히지 않아 문구로 적었습니다.
