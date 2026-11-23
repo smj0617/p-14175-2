@@ -273,3 +273,70 @@ apiFetch(`/api/v1/posts`).then(setPosts);
 |---|---|
 | ![전](docs/images/2-2.png) | ![후](docs/images/2-3.png) |
 | `/posts` (fetch 직접 사용) | `/posts` (apiFetch 사용) 화면 동일 |
+
+---
+
+## 3. 글 단건조회
+
+### 커밋 3-1: `/posts/[id]` 상세 페이지
+
+**변경 파일 (모두 새 파일)**
+
+| 파일 | 역할 |
+|---|---|
+| `src/app/posts/[id]/page.tsx` | 글 상세 페이지. 주소 `/posts/1`, `/posts/2`, ... |
+| `src/app/posts/[id]/loading.tsx` | 페이지가 준비되기 전에 잠깐 보여 줄 "로딩중..." 화면 |
+
+**`[id]` 폴더: 동적 경로**
+
+- 폴더 이름을 대괄호로 감싸면 **그 자리에 어떤 값이든 들어올 수 있는 주소**가 됩니다.
+- `/posts/1`, `/posts/2`, `/posts/999` 모두 같은 `posts/[id]/page.tsx`가 처리하고, 주소의 숫자는 `id`라는 이름으로 꺼낼 수 있습니다.
+- 스프링의 `@GetMapping("/posts/{id}")` + `@PathVariable int id`와 같은 개념입니다.
+
+**코드 읽는 법**
+
+```tsx
+const { id: idStr } = useParams<{ id: string }>();
+const id = Number(idStr);
+```
+
+- `useParams()`: 현재 주소의 동적 값들을 `{ id: "1" }` 같은 객체로 돌려줍니다.
+- `{ id: idStr }`: 객체에서 `id`를 꺼내면서 이름을 `idStr`로 바꿉니다(구조 분해 + 이름 변경).
+- 주소에서 꺼낸 값은 **항상 문자열**이라서 `Number(...)`로 숫자로 바꿉니다.
+
+```tsx
+useEffect(() => {
+  apiFetch(`/api/v1/posts/${id}`).then(setPost);
+}, [id]);
+```
+
+- 2-2와 같은 패턴입니다. 다른 점은 두 번째 인자가 `[]`가 아니라 `[id]`라는 것입니다.
+- `[id]`: "처음 한 번 + **id가 바뀔 때마다** 다시 실행"이라는 뜻입니다. `/posts/1`에서 `/posts/2`로 이동하면 새 글을 다시 받아옵니다.
+- 이 배열을 **의존성 배열**이라고 합니다. effect 안에서 쓰는 바깥 값(`id`)은 여기에 적습니다.
+
+```tsx
+<div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
+```
+
+- 본문의 줄바꿈(`\n`)을 화면에서도 줄바꿈으로 보여 줍니다. HTML은 기본적으로 줄바꿈을 무시하기 때문입니다.
+- `style={{ ... }}`: 바깥 `{ }`는 "JavaScript 값을 넣는다", 안쪽 `{ }`는 "객체"입니다.
+
+**`loading.tsx`가 필요한 이유**
+
+- 이 프로젝트는 create-next-app 기본값으로 `next.config.ts`에 `cacheComponents: true`가 켜져 있습니다. 이 설정에서는 Next.js가 빌드할 때 페이지를 미리 그려 두려고 합니다.
+- 그런데 `useParams()`로 읽는 주소 값은 **실제로 접속해야** 알 수 있으므로 미리 그릴 수 없습니다. 그래서 `loading.tsx` 없이 `pnpm build`를 하면 아래 오류가 납니다.
+
+  ```
+  Route "/posts/[id]": Next.js encountered URL data `useParams()` in a Client Component outside of `<Suspense>`.
+  ```
+
+- 같은 폴더에 `loading.tsx`를 두면 Next.js가 페이지를 자동으로 `<Suspense>`로 감쌉니다. 그러면 "미리 그릴 때는 `loading.tsx` 화면을 쓰고, 실제 접속하면 `page.tsx`로 바꿔 끼운다"가 되어 오류가 사라집니다.
+
+**확인 방법**: 글 목록에서 제목을 누르거나 http://localhost:3000/posts/1 접속
+
+**결과 화면**
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/3-1-before.png) | ![후](docs/images/3-1.png) |
+| `/posts/1` 페이지가 없어서 404 | `/posts/1` 글 번호, 제목, 내용 표시 |
