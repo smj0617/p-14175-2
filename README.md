@@ -103,3 +103,15 @@ pnpm create next-app@16.4.6 p-14175-2 --ts --tailwind --eslint --app --src-dir -
   - `flex`: 자식 요소를 가로로 나란히 놓음
   - `p-2`: 안쪽 여백, `rounded`: 모서리 둥글게, `hover:bg-gray-100`: 마우스를 올리면 회색 배경
   - `flex-grow`: `<main>`이 남는 세로 공간을 모두 차지해서 푸터가 화면 맨 아래로 내려감
+
+### 커밋 1-2: 홈 페이지를 "안녕하세요."로 단순화
+
+**변경 파일**: `src/app/page.tsx`
+
+- create-next-app이 만든 기본 소개 화면을 지우고, 가운데에 "안녕하세요."만 보여 주는 홈으로 바꿨습니다.
+- 컴포넌트 구조가 한눈에 보입니다: `export default function Page()` → `return (JSX)`
+- 이 페이지의 `<div>`가 `layout.tsx`의 `{children}` 자리에 들어갑니다.
+- Tailwind 클래스
+  - `flex-grow`: `<main>`의 남는 공간을 모두 차지함
+  - `flex items-center justify-center`: 내용을 세로·가로 가운데에 놓음
+- 기본 화면에서만 쓰던 `next/image`와 `public/` 안의 이미지 import도 함께 사라졌습니다.
