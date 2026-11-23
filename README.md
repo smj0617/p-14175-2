@@ -717,3 +717,60 @@ src/app/posts/[id]/edit/page.tsx  → /posts/35/edit
 | ③ 저장 → 수정 완료 alert | ④ 확인 → 상세 페이지에 바뀐 내용 |
 |---|---|
 | ![alert](docs/images/6-2-alert.png) | ![후](docs/images/6-2.png) |
+
+---
+
+## 7. 댓글 다건조회
+
+### 커밋 7-1: 상세 페이지 아래에 댓글 목록 출력
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/type/post.ts` | `PostCommentDto` 타입 추가 (백엔드 Java record와 같은 모양) |
+| `src/app/posts/[id]/page.tsx` | 댓글 state + `useEffect`로 `GET /api/v1/posts/{id}/comments`, 목록 출력 |
+
+**같은 패턴의 반복**
+
+댓글 목록을 받아오는 코드는 2-2 글 목록, 3-2 글 상세와 **똑같은 패턴**입니다.
+
+```tsx
+const [postComments, setPostComments] = useState<PostCommentDto[] | null>(null);
+
+useEffect(() => {
+  apiFetch(`/api/v1/posts/${id}/comments`)
+    .then(setPostComments)
+    .catch(...);
+}, [id]);
+```
+
+- 한 컴포넌트에 `useState`와 `useEffect`를 **여러 개** 써도 됩니다. 글(`post`)과 댓글(`postComments`)을 각각 따로 받아오고, 각자 도착하는 대로 화면에 반영됩니다.
+- 그래서 화면에 "댓글 로딩중..."을 따로 두었습니다. 글이 먼저 와도 댓글은 아직일 수 있기 때문입니다.
+
+**훅의 규칙: 조기 `return`보다 위에**
+
+```tsx
+const [post, setPost] = useState(...);          // 훅
+useEffect(...);                                 // 훅
+const [postComments, ...] = useState(...);      // 훅
+useEffect(...);                                 // 훅
+
+if (post == null) return <div>로딩중...</div>;  // 조기 return은 훅들 아래
+```
+
+- React는 `useState`, `useEffect` 같은 훅을 **호출 순서**로 구분합니다(첫 번째 useState, 두 번째 useState, ...).
+- 훅을 `if (post == null) return` **아래**에 두면, 처음(로딩 중)에는 그 훅이 호출되지 않고 다음 번에는 호출됩니다. 순서가 바뀌어 React가 어느 state가 어느 것인지 헷갈리므로 에러가 납니다.
+- 규칙: **훅은 항상 컴포넌트 맨 위에서, 조건 없이** 호출합니다.
+
+**화면**
+
+- `<hr>`: 가로 구분선. `my-2`는 위아래 여백
+- `{" "}`: JSX에서 줄이 바뀌면 공백이 사라지므로, 공백 한 칸을 명시적으로 넣은 것입니다.
+
+**결과 화면** (1번 글: 기본 데이터에 댓글 3개)
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/7-1-before.png) | ![후](docs/images/7-1.png) |
+| 글 내용만 있음 | 아래에 "1번 글에 대한 댓글 목록"과 댓글 3개 |
