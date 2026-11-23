@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
 import type { PostDto } from "@/type/post";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -10,9 +11,7 @@ export default function Page() {
 
   // 화면이 처음 그려진 뒤 한 번만 실행
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/posts`)
-      .then((res) => res.json())
-      .then(setPosts);
+    apiFetch(`/api/v1/posts`).then(setPosts);
   }, []);
 
   if (posts == null) return <div>로딩중...</div>;

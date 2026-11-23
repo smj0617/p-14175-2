@@ -194,3 +194,45 @@ pnpm create next-app@16.4.6 p-14175-2 --ts --tailwind --eslint --app --src-dir -
 - `<Link href={`/posts/${post.id}`}>`: 제목을 누르면 `/posts/1` 같은 상세 주소로 갑니다. 상세 페이지는 3번 기능에서 만듭니다.
 
 **확인 방법**: 백엔드(`localhost:8080`)를 켠 상태에서 `pnpm dev` → 상단 메뉴 "글 목록"
+
+> **주의: "Failed to fetch"가 뜰 때**
+> 3000 포트를 다른 프로그램이 쓰고 있으면 `pnpm dev`가 3001 포트로 뜹니다. 백엔드 CORS 설정은 `localhost:3000`만 허용하므로 요청이 거절되고, 브라우저는 이유 없이 "Failed to fetch"만 보여 줍니다. 터미널에 `Local: http://localhost:3000`이 나오는지 확인하세요.
+
+### 커밋 2-3: 백엔드 호출을 공용 함수 `apiFetch`로 분리
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/lib/backend/client.ts` (새 파일) | 공용 함수 `apiFetch` |
+| `src/app/posts/page.tsx` | `fetch(...)` 3줄 → `apiFetch(...)` 1줄 |
+
+**왜 분리하나?**
+
+앞으로 글 단건조회, 삭제, 작성, 수정, 댓글까지 페이지마다 백엔드를 부릅니다. 그때마다 아래 두 가지를 반복하게 됩니다.
+
+1. 주소 앞에 `process.env.NEXT_PUBLIC_API_BASE_URL` 붙이기
+2. `.then((res) => res.json())`로 응답을 JSON으로 바꾸기
+
+이 반복을 함수 하나로 모았습니다. 스프링에서 여러 컨트롤러가 공통으로 쓰는 코드를 서비스나 유틸 클래스로 빼는 것과 같은 이유입니다.
+
+**전후 비교**
+
+```tsx
+// 전
+fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/posts`)
+  .then((res) => res.json())
+  .then(setPosts);
+
+// 후
+apiFetch(`/api/v1/posts`).then(setPosts);
+```
+
+**`apiFetch` 읽는 법**
+
+- `export const apiFetch = (url: string, options?: RequestInit) => { ... }`: 화살표 함수(`=>`)를 상수에 담은 것입니다. `function apiFetch(...) { ... }`와 같은 뜻입니다.
+- `url: string`: `/api/v1/posts`처럼 주소 뒷부분만 받습니다.
+- `options?: RequestInit`: `?`는 "생략 가능"이라는 뜻입니다. 지금은 GET만 쓰므로 생략하고, 나중에 삭제(`DELETE`)·작성(`POST`)에서 `{ method: "DELETE" }` 같은 옵션을 넘깁니다. `RequestInit`은 `fetch`가 받는 옵션의 타입입니다.
+- `return fetch(...).then((res) => res.json())`: JSON으로 바꾼 결과를 돌려주므로, 부르는 쪽에서 `.then(setPosts)`처럼 바로 이어 쓸 수 있습니다.
+
+**결과**: 화면은 2-2와 똑같습니다. 동작은 그대로 두고 코드 구조만 바꾸는 것을 **리팩터링**이라고 합니다.
