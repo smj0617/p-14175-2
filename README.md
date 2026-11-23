@@ -774,3 +774,54 @@ if (post == null) return <div>로딩중...</div>;  // 조기 return은 훅들 �
 |---|---|
 | ![전](docs/images/7-1-before.png) | ![후](docs/images/7-1.png) |
 | 글 내용만 있음 | 아래에 "1번 글에 대한 댓글 목록"과 댓글 3개 |
+
+### 커밋 7-2: 커스텀 훅 `usePost`, `usePostComments`로 분리 (리팩터링)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+`Page()` 하나에 글 불러오기, 글 삭제, 댓글 불러오기가 모두 들어 있어 길어졌습니다. 관련 있는 것끼리 **커스텀 훅**으로 묶었습니다.
+
+| 커스텀 훅 | 안에 든 것 | 돌려주는 것 |
+|---|---|---|
+| `usePost(id)` | 글 state, 불러오기 `useEffect`, 삭제 요청 | `{ post, deletePost }` |
+| `usePostComments(postId)` | 댓글 state, 불러오기 `useEffect` | `{ postComments }` |
+
+```tsx
+const { post, deletePost: _deletePost } = usePost(id);
+const { postComments } = usePostComments(id);
+```
+
+**커스텀 훅이란?**
+
+- 이름이 `use`로 시작하고, 안에서 `useState`·`useEffect` 같은 훅을 쓰는 **평범한 함수**입니다.
+- "state + 그 state를 다루는 코드"를 한 덩어리로 묶어 이름을 붙이는 것입니다. 스프링에서 관련 로직을 서비스 클래스로 빼는 것과 비슷합니다.
+- 커스텀 훅도 훅이므로 7-1의 규칙이 그대로 적용됩니다. 조기 `return`보다 **위에서** 호출합니다.
+- `{ deletePost: _deletePost }`: 구조 분해하면서 이름을 `_deletePost`로 바꿉니다. 페이지 안에 같은 이름의 `deletePost`(버튼용)를 따로 만들기 위해서입니다.
+
+**역할 나누기: 훅은 "데이터", 페이지는 "화면 반응"**
+
+```tsx
+// usePost 안: 요청만 하고, 성공 후 할 일은 받아서 실행
+const deletePost = (onSuccess) => {
+  apiFetch(`/api/v1/posts/${id}`, { method: "DELETE" }).then(onSuccess)...
+};
+
+// 페이지 안: 확인 창, 알림, 이동처럼 화면에 관한 것
+const deletePost = () => {
+  if (!confirm(...)) return;
+  _deletePost((data) => {
+    alert(data.msg);
+    router.replace("/posts");
+  });
+};
+```
+
+- `onSuccess`처럼 **함수를 인자로 넘겨** "끝나면 이걸 해 줘"라고 맡기는 것을 **콜백**이라고 합니다.
+- 덕분에 `usePost`는 "삭제 요청"만 알고, 삭제 후 목록으로 갈지 홈으로 갈지는 쓰는 쪽이 정합니다.
+- `(data: { msg: string }) => void`: "msg 문자열을 가진 객체를 받아서 아무것도 돌려주지 않는 함수"라는 타입입니다.
+
+**결과 화면**: 동작은 그대로이고 구조만 바꿨으므로 화면이 같습니다.
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/7-1.png) | ![후](docs/images/7-2.png) |

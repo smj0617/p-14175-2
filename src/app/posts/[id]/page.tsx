@@ -6,14 +6,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function Page() {
-  // 코드로 페이지를 이동할 때 쓰는 도구
-  const router = useRouter();
-
-  // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
-  const { id: idStr } = useParams<{ id: string }>();
-  const id = Number(idStr);
-
+// 커스텀 훅 1: 글 하나에 관한 것(불러오기, 삭제)을 묶는다
+function usePost(id: number) {
   const [post, setPost] = useState<PostDto | null>(null);
 
   // id가 바뀔 때마다 그 글을 다시 받아온다
@@ -25,39 +19,62 @@ export default function Page() {
       });
   }, [id]);
 
-  // 이 글에 달린 댓글 목록. 처음에는 아직 받아오지 않았으므로 null
+  // 삭제 요청. 성공한 뒤 무엇을 할지(onSuccess)는 부르는 쪽이 정한다
+  const deletePost = (onSuccess: (data: { msg: string }) => void) => {
+    apiFetch(`/api/v1/posts/${id}`, {
+      method: "DELETE",
+    })
+      .then(onSuccess)
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
+  };
+
+  return { post, deletePost };
+}
+
+// 커스텀 훅 2: 이 글의 댓글 목록에 관한 것을 묶는다
+function usePostComments(postId: number) {
   const [postComments, setPostComments] = useState<PostCommentDto[] | null>(
     null,
   );
 
   useEffect(() => {
-    apiFetch(`/api/v1/posts/${id}/comments`)
+    apiFetch(`/api/v1/posts/${postId}/comments`)
       .then(setPostComments)
       .catch((error) => {
         alert(`${error.resultCode} : ${error.msg}`);
       });
-  }, [id]);
+  }, [postId]);
 
-  // 주의: useState, useEffect 같은 훅은 모두 이 줄(조기 return)보다 위에 있어야 한다
+  return { postComments };
+}
+
+export default function Page() {
+  // 코드로 페이지를 이동할 때 쓰는 도구
+  const router = useRouter();
+
+  // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
+  const { id: idStr } = useParams<{ id: string }>();
+  const id = Number(idStr);
+
+  // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
+  const { post, deletePost: _deletePost } = usePost(id);
+  const { postComments } = usePostComments(id);
+
   if (post == null) return <div>로딩중...</div>;
 
-  // 삭제 버튼을 눌렀을 때 실행
+  // 삭제 버튼을 눌렀을 때 실행: 확인 창 + 성공 후 이동은 화면(페이지)의 몫
   const deletePost = () => {
     // 취소를 누르면 confirm이 false → 여기서 끝냄
     if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
 
-    apiFetch(`/api/v1/posts/${post.id}`, {
-      method: "DELETE",
-    })
-      .then((data) => {
-        alert(data.msg);
+    _deletePost((data) => {
+      alert(data.msg);
 
-        // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
-        router.replace("/posts");
-      })
-      .catch((error) => {
-        alert(`${error.resultCode} : ${error.msg}`);
-      });
+      // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
+      router.replace("/posts");
+    });
   };
 
   return (
