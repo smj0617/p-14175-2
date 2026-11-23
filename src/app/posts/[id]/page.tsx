@@ -68,7 +68,29 @@ function usePostComments(postId: number) {
       });
   };
 
-  return { postComments, deleteComment };
+  // 댓글 작성 요청. 성공하면 응답으로 온 새 댓글을 목록 끝에 붙인다
+  const writeComment = (
+    content: string,
+    onSuccess: (data: { msg: string }) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    })
+      .then((data) => {
+        if (postComments == null) return;
+
+        // [...기존배열, 새것]: 기존 댓글을 펼쳐 넣고 끝에 새 댓글을 더한 "새 배열"
+        setPostComments([...postComments, data.data]);
+
+        onSuccess(data);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
+  };
+
+  return { postComments, deleteComment, writeComment };
 }
 
 export default function Page() {
@@ -81,7 +103,11 @@ export default function Page() {
 
   // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
   const { post, deletePost: _deletePost } = usePost(id);
-  const { postComments, deleteComment: _deleteComment } = usePostComments(id);
+  const {
+    postComments,
+    deleteComment: _deleteComment,
+    writeComment,
+  } = usePostComments(id);
 
   if (post == null) return <div>로딩중...</div>;
 
@@ -134,8 +160,12 @@ export default function Page() {
       return;
     }
 
-    // 아직은 콘솔에만 찍어 본다 (백엔드 전송은 9-2에서)
-    console.log("댓글 내용:", contentTextarea.value);
+    writeComment(contentTextarea.value, (data) => {
+      alert(data.msg);
+
+      // 다음 댓글을 쓸 수 있게 입력칸 비우기
+      contentTextarea.value = "";
+    });
   };
 
   return (

@@ -908,3 +908,59 @@ setPostComments(postComments.filter((c) => c.id != commentId));
 | ① 비운 채 작성 | ② `a` 한 글자로 작성 |
 |---|---|
 | ![빈 값](docs/images/9-1-empty.png) | ![2자 미만](docs/images/9-1-short.png) |
+
+### 커밋 9-2: POST로 댓글 저장, 새 댓글을 목록 끝에 추가
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+| 위치 | 추가한 것 |
+|---|---|
+| `usePostComments` 훅 | `writeComment(content, onSuccess)`: POST 요청 → 성공하면 새 댓글을 state 끝에 추가 |
+| `Page` | 검사 통과 후 `writeComment` 호출 → 성공하면 alert + 입력칸 비우기 |
+
+```tsx
+apiFetch(`/api/v1/posts/${postId}/comments`, {
+  method: "POST",
+  body: JSON.stringify({ content }),
+}).then((data) => {
+  setPostComments([...postComments, data.data]);
+  onSuccess(data);
+});
+```
+
+**`[...postComments, data.data]`: 전개 문법**
+
+- `...배열`은 배열 안의 요소들을 그 자리에 **펼쳐 놓습니다**. `[...[a, b], c]` → `[a, b, c]`
+- 기존 댓글들을 펼쳐 넣고 끝에 새 댓글을 붙인 **새 배열**을 만듭니다.
+- 8-1의 `filter`와 같은 원칙입니다. 기존 배열을 `push`로 직접 고치지 않고 새 배열로 바꿔야 React가 변화를 알아채고 다시 그립니다.
+
+| | 8-1 댓글 삭제 | 9-2 댓글 작성 |
+|---|---|---|
+| state 바꾸기 | `postComments.filter(c => c.id != commentId)` | `[...postComments, data.data]` |
+| 결과 | 그 댓글만 뺀 새 배열 | 끝에 새 댓글을 더한 새 배열 |
+
+- `data.data`: 백엔드 응답(`RsData<PostCommentDto>`)의 `data` = 방금 저장된 댓글(번호, 날짜 포함). 5-3에서 새 글 번호를 `data.data.id`로 꺼낸 것과 같은 구조입니다.
+- `{ content }`: `{ content: content }`의 줄임 표기입니다. 변수 이름과 키 이름이 같으면 한 번만 씁니다.
+- `contentTextarea.value = ""`: 저장 후 입력칸을 비워 다음 댓글을 바로 쓸 수 있게 합니다.
+
+**결과 화면** (35번 글에 댓글 작성. 9-1까지는 검사를 통과해도 콘솔에만 찍혔음)
+
+| ① 댓글 입력 | ② 작성 → 완료 alert | ③ 확인 → 목록 끝에 35번 댓글, 입력칸 비워짐 |
+|---|---|---|
+| ![입력](docs/images/9-2-before.png) | ![alert](docs/images/9-2-alert.png) | ![후](docs/images/9-2.png) |
+
+---
+
+## 마무리
+
+| 기능 | 커밋 | 핵심 개념 |
+|---|---|---|
+| 1. 홈 | 1-1, 1-2 | `layout.tsx`와 `{children}`, `Link` |
+| 2. 글 다건조회 | 2-1 ~ 2-3 | `.env`, 타입, `useState`, `useEffect`, `fetch`, 공용 함수 `apiFetch` |
+| 3. 글 단건조회 | 3-1, 3-2 | 동적 경로 `[id]`, `useParams`, 의존성 배열, `res.ok`와 `.catch` |
+| 4. 글 삭제 | 4-1, 4-2 | `onClick`, `confirm`, `DELETE`, `useRouter`와 `replace` |
+| 5. 글 작성 | 5-1 ~ 5-3 | `onSubmit`, `preventDefault`, 입력 검사, `POST`, `JSON.stringify`, `Content-Type` |
+| 6. 글 수정 | 6-1, 6-2 | `defaultValue`, `PUT` |
+| 7. 댓글 다건조회 | 7-1, 7-2 | 훅의 규칙, 커스텀 훅, 콜백 |
+| 8. 댓글 삭제 | 8-1 | `filter`로 state 갱신 |
+| 9. 댓글 작성 | 9-1, 9-2 | 전개 문법 `[...arr, x]`로 state 갱신 |
