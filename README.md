@@ -642,3 +642,46 @@ if (options?.body) {
 | ③ 확인 → 새 글(35번) 상세 페이지로 이동 |
 |---|
 | ![후](docs/images/5-3.png) |
+
+---
+
+## 6. 글 수정
+
+### 커밋 6-1: `/posts/[id]/edit` 수정 폼 (기존 글 채워 두기) + 상세에 "수정" 링크
+
+**변경 파일**
+
+| 파일 | 내용 |
+|---|---|
+| `src/app/posts/[id]/edit/page.tsx` (새 파일) | 기존 글을 불러와 입력칸에 채운 수정 폼. 저장을 누르면 콘솔에 출력 |
+| `src/app/posts/[id]/edit/loading.tsx` (새 파일) | 3-1과 같은 이유(`useParams` + `cacheComponents`)로 필요 |
+| `src/app/posts/[id]/page.tsx` | 삭제 버튼 옆에 `<Link href={`/posts/${post.id}/edit`}>수정</Link>` |
+
+**폴더 구조 = 주소**
+
+```
+src/app/posts/[id]/page.tsx       → /posts/35
+src/app/posts/[id]/edit/page.tsx  → /posts/35/edit
+```
+
+`edit` 폴더가 `[id]` 폴더 **안에** 있으므로 수정 페이지에서도 `useParams()`로 `id`를 꺼낼 수 있습니다.
+
+**수정 폼 = 글쓰기 폼 + 기존 값**
+
+- 화면 구조와 `handleSubmit`은 5-1 글쓰기와 거의 같습니다.
+- 다른 점은 처음에 **기존 글을 불러와서** 입력칸에 채워 둔다는 것입니다. 불러오는 코드는 3-2 상세 페이지와 같습니다.
+- `defaultValue={post.title}`: 입력칸의 **처음 값**만 정해 줍니다. 그 뒤로는 사용자가 자유롭게 고칠 수 있습니다.
+  - `value={post.title}`로 쓰면 React가 값을 계속 `post.title`로 고정해서 글자를 입력해도 바뀌지 않습니다(값을 바꾸려면 `onChange`와 state가 필요).
+- `if (post == null) return <div>로딩중...</div>;`가 중요합니다. `defaultValue`는 **처음 그릴 때 한 번만** 적용되므로, 글을 받아오기 전에 폼을 그려 버리면 입력칸이 빈 채로 남습니다.
+- `autoFocus`: 페이지가 열리면 제목 칸에 바로 커서가 갑니다.
+
+**확인 방법**: 글 상세 → "수정" → 기존 제목·내용이 채워진 폼 → 저장 → F12 Console에 입력값이 찍힘
+
+**결과 화면**
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/6-1-before.png) | ![후](docs/images/6-1-detail.png) |
+| `/posts/35` 수정 링크 없음 | `/posts/35` 삭제 옆에 "수정" 링크 |
+| ![전](docs/images/6-1-before-edit.png) | ![후](docs/images/6-1.png) |
+| `/posts/35/edit` 페이지가 없어서 404 | `/posts/35/edit` 기존 제목·내용이 채워진 수정 폼 (제목 칸에 커서) |

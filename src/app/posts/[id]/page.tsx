@@ -2,6 +2,7 @@
 
 import { apiFetch } from "@/lib/backend/client";
 import type { PostDto } from "@/type/post";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -57,6 +58,9 @@ export default function Page() {
         <button className="p-2 rounded border cursor-pointer" onClick={deletePost}>
           삭제
         </button>
+        <Link className="p-2 rounded border" href={`/posts/${post.id}/edit`}>
+          수정
+        </Link>
       </div>
     </>
   );
