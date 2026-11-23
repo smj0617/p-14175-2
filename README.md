@@ -406,3 +406,39 @@ apiFetch(`/api/v1/posts/${id}`)
 | 에러 JSON이 글로 저장되어 번호·제목이 빈 칸 | `404-1 : 해당 데이터가 존재하지 않습니다.` 알림창이 뜨고, 확인을 누르면 "로딩중..."에 머묾 |
 
 알림창은 브라우저 바깥 창이라 캡처에 찍히지 않아 문구로 적었습니다.
+
+---
+
+## 4. 글 삭제
+
+### 커밋 4-1: 상세 페이지에 삭제 버튼 + DELETE 요청
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+**동작 순서**
+
+```
+1. "삭제" 버튼 클릭 → deletePost() 실행
+2. confirm("1번 글을 정말로 삭제하시겠습니까?") → 취소하면 여기서 끝
+3. 확인하면 DELETE /api/v1/posts/1 요청
+4. 성공: 백엔드 응답 {"resultCode":"200-1","msg":"1번 글이 삭제되었습니다."} 의 msg를 alert
+   실패: .catch에서 resultCode와 msg를 alert
+```
+
+**핵심 개념**
+
+- `<button onClick={deletePost}>`: 버튼을 누르면 `deletePost` 함수를 실행합니다.
+  - `onClick={deletePost}`처럼 **함수 자체**를 넘깁니다. `onClick={deletePost()}`라고 쓰면 화면을 그릴 때 바로 실행돼 버립니다.
+- `const deletePost = () => { ... }`: 컴포넌트 함수 **안에** 만든 함수라서 `post` 같은 바깥 변수를 그대로 쓸 수 있습니다.
+- `confirm(문구)`: 브라우저 기본 확인 창입니다. 확인을 누르면 `true`, 취소를 누르면 `false`를 돌려줍니다. `if (!confirm(...)) return;`은 "취소면 아무것도 안 하고 끝"입니다.
+- `apiFetch(주소, { method: "DELETE" })`: 2-3에서 만들어 둔 두 번째 인자 `options`를 처음 씁니다. 생략하면 GET, `method`를 주면 그 방식으로 요청합니다.
+- 백엔드 삭제 API는 `RsData`(`resultCode`, `msg`, `data`)를 돌려주므로 `data.msg`로 안내 문구를 꺼냅니다.
+
+**아직 남은 문제**: 삭제는 되지만 화면은 지워진 글을 그대로 보여 줍니다. 다음 커밋에서 삭제 후 글 목록으로 이동시킵니다.
+
+**결과 화면**
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/4-1-before.png) | ![후](docs/images/4-1.png) |
+| `/posts/1` 삭제 버튼 없음 | `/posts/1` 아래에 "삭제" 버튼이 생김 |

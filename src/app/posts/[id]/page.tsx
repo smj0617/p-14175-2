@@ -23,6 +23,22 @@ export default function Page() {
 
   if (post == null) return <div>로딩중...</div>;
 
+  // 삭제 버튼을 눌렀을 때 실행
+  const deletePost = () => {
+    // 취소를 누르면 confirm이 false → 여기서 끝냄
+    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+
+    apiFetch(`/api/v1/posts/${post.id}`, {
+      method: "DELETE",
+    })
+      .then((data) => {
+        alert(data.msg);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
+  };
+
   return (
     <>
       <h1>글 상세페이지</h1>
@@ -30,6 +46,12 @@ export default function Page() {
       <div>번호 : {post.id}</div>
       <div>제목 : {post.title}</div>
       <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
+
+      <div className="flex gap-2">
+        <button className="p-2 rounded border cursor-pointer" onClick={deletePost}>
+          삭제
+        </button>
+      </div>
     </>
   );
 }
