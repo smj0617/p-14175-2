@@ -825,3 +825,54 @@ const deletePost = () => {
 | 전 | 후 |
 |---|---|
 | ![전](docs/images/7-1.png) | ![후](docs/images/7-2.png) |
+
+---
+
+## 8. 댓글 삭제
+
+### 커밋 8-1: 댓글마다 삭제 버튼, 삭제 후 목록에서 바로 빼기
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+| 위치 | 추가한 것 |
+|---|---|
+| `usePostComments` 훅 | `deleteComment(commentId, onSuccess)`: DELETE 요청 → 성공하면 state에서 그 댓글 제거 |
+| `Page` | `deleteComment(commentId)`: confirm → 훅 호출 → 성공하면 alert |
+| 댓글 `<li>` | 댓글마다 "삭제" 버튼 |
+
+**글 삭제(4-2)와 다른 점: 페이지 이동 없이 화면 갱신**
+
+글을 지우면 그 페이지 자체가 의미가 없어져서 목록으로 이동했습니다. 댓글은 지워도 **같은 페이지에 머물러야** 하므로, 화면의 댓글 목록(state)에서 지운 댓글만 빼서 다시 그리게 합니다.
+
+```tsx
+setPostComments(postComments.filter((c) => c.id != commentId));
+```
+
+- `filter(조건)`: 배열에서 조건이 `true`인 것만 남긴 **새 배열**을 만듭니다. "id가 지운 댓글과 다른 것만 남겨라" → 지운 댓글만 빠집니다. Java Stream의 `filter`와 같습니다.
+- `setPostComments(새 배열)` → React가 화면을 다시 그림 → 그 댓글이 목록에서 사라짐
+- 백엔드에 목록을 다시 요청하지 않습니다. 삭제가 성공했다는 응답을 받았으니 화면 쪽 데이터만 맞춰 주면 됩니다.
+
+**state는 직접 고치지 않고 "새 값"으로 바꾼다**
+
+- `postComments.splice(...)`처럼 기존 배열을 직접 고치면, React는 "같은 배열"이라고 보고 화면을 다시 그리지 않을 수 있습니다.
+- `filter`는 원래 배열을 건드리지 않고 새 배열을 돌려주므로 React가 변화를 알아챕니다.
+
+**버튼에 인자 넘기기**
+
+```tsx
+<button onClick={() => deleteComment(comment.id)}>삭제</button>
+```
+
+- 4-1에서 본 것처럼 `onClick={deleteComment(comment.id)}`라고 쓰면 화면을 그릴 때 바로 실행됩니다.
+- 인자가 필요할 때는 화살표 함수로 감싸서 "누르면 이걸 실행해"라는 **함수**를 넘깁니다.
+
+**결과 화면** (35번 글에 테스트용 댓글 A(33번), B(34번)를 API로 만들어 A를 삭제)
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/8-1-before.png) | ![후](docs/images/8-1-list.png) |
+| 댓글에 삭제 버튼 없음 | 댓글마다 "삭제" 버튼 |
+
+| ① A의 삭제 클릭 → confirm | ② 확인 → 삭제 완료 alert | ③ 확인 → 같은 페이지에서 A만 사라짐 |
+|---|---|---|
+| ![confirm](docs/images/8-1-confirm.png) | ![alert](docs/images/8-1-alert.png) | ![후](docs/images/8-1.png) |

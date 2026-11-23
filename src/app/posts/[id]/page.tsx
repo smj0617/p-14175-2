@@ -47,7 +47,28 @@ function usePostComments(postId: number) {
       });
   }, [postId]);
 
-  return { postComments };
+  // 댓글 삭제 요청. 성공하면 화면의 목록에서도 그 댓글을 뺀다
+  const deleteComment = (
+    commentId: number,
+    onSuccess: (data: { msg: string }) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
+      method: "DELETE",
+    })
+      .then((data) => {
+        if (postComments == null) return;
+
+        // filter: 조건이 true인 것만 남긴 "새 배열"을 만든다 → 삭제한 댓글만 빠짐
+        setPostComments(postComments.filter((c) => c.id != commentId));
+
+        onSuccess(data);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
+  };
+
+  return { postComments, deleteComment };
 }
 
 export default function Page() {
@@ -60,7 +81,7 @@ export default function Page() {
 
   // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
   const { post, deletePost: _deletePost } = usePost(id);
-  const { postComments } = usePostComments(id);
+  const { postComments, deleteComment: _deleteComment } = usePostComments(id);
 
   if (post == null) return <div>로딩중...</div>;
 
@@ -74,6 +95,16 @@ export default function Page() {
 
       // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
       router.replace("/posts");
+    });
+  };
+
+  // 댓글 삭제 버튼을 눌렀을 때 실행
+  const deleteComment = (commentId: number) => {
+    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+
+    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
+    _deleteComment(commentId, (data) => {
+      alert(data.msg);
     });
   };
 
@@ -107,9 +138,15 @@ export default function Page() {
       {postComments != null && postComments.length > 0 && (
         <ul className="mt-2 flex flex-col gap-2">
           {postComments.map((comment) => (
-            <li key={comment.id}>
-              {comment.id} :{" "}
+            <li key={comment.id} className="flex gap-2 items-center">
+              <span>{comment.id} :</span>
               <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+              <button
+                className="p-2 rounded border cursor-pointer"
+                onClick={() => deleteComment(comment.id)}
+              >
+                삭제
+              </button>
             </li>
           ))}
         </ul>
