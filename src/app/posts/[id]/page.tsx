@@ -207,19 +207,18 @@ function PostCommentWrite({
   );
 }
 
-// 컴포넌트 2-2: 댓글 목록
-function PostCommentList({
+// 컴포넌트 2-2-1: 댓글 한 줄 (목록의 <li> 하나)
+// comment = 이 줄이 그릴 댓글 하나, postCommentsState = 삭제 함수를 꺼내기 위한 훅 결과
+function PostCommentListItem({
+  comment,
   postCommentsState,
 }: {
+  comment: PostCommentDto;
   postCommentsState: ReturnType<typeof usePostComments>;
 }) {
-  const {
-    postId,
-    postComments,
-    deleteComment: _deleteComment,
-  } = postCommentsState;
+  const { deleteComment: _deleteComment } = postCommentsState;
 
-  // 댓글 삭제 버튼을 눌렀을 때 실행
+  // 댓글 삭제 버튼을 눌렀을 때 실행 (PostCommentList에 있던 것을 옮김)
   const deleteComment = (commentId: number) => {
     if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
 
@@ -228,6 +227,30 @@ function PostCommentList({
       alert(data.msg);
     });
   };
+
+  // key는 여기가 아니라 이 컴포넌트를 부르는 쪽(map 안)에 붙인다
+  return (
+    <li className="flex gap-2 items-center">
+      <span>{comment.id} :</span>
+      <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+      <button
+        className="p-2 rounded border cursor-pointer"
+        onClick={() => deleteComment(comment.id)}
+      >
+        삭제
+      </button>
+    </li>
+  );
+}
+
+// 컴포넌트 2-2: 댓글 목록
+function PostCommentList({
+  postCommentsState,
+}: {
+  postCommentsState: ReturnType<typeof usePostComments>;
+}) {
+  // 목록에 필요한 것만 꺼낸다 (삭제 함수는 PostCommentListItem이 꺼낸다)
+  const { postId, postComments } = postCommentsState;
 
   return (
     <>
@@ -242,16 +265,11 @@ function PostCommentList({
       {postComments != null && postComments.length > 0 && (
         <ul className="mt-2 flex flex-col gap-2">
           {postComments.map((comment) => (
-            <li key={comment.id} className="flex gap-2 items-center">
-              <span>{comment.id} :</span>
-              <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
-              <button
-                className="p-2 rounded border cursor-pointer"
-                onClick={() => deleteComment(comment.id)}
-              >
-                삭제
-              </button>
-            </li>
+            <PostCommentListItem
+              key={comment.id}
+              comment={comment}
+              postCommentsState={postCommentsState}
+            />
           ))}
         </ul>
       )}

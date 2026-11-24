@@ -1670,6 +1670,70 @@ function PostInfo({
 |---|---|
 | ![전](docs/images/10-3.png) | ![후](docs/images/10-4.png) |
 
+### 커밋 10-5: `PostCommentListItem` 분리 (48강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+`PostCommentList`의 `map` 안에 있던 `<li>`(댓글 한 줄)를 `PostCommentListItem` 컴포넌트로 뺐습니다. 댓글 삭제 확인창 함수도 삭제 버튼을 따라 이 컴포넌트로 옮겼습니다.
+
+| | 10-4 | 10-5 |
+|---|---|---|
+| 댓글 한 줄 `<li>` | `PostCommentList`의 `map` 안 | `PostCommentListItem` |
+| 확인창 붙은 `deleteComment` | `PostCommentList` | `PostCommentListItem` |
+| `PostCommentList`가 꺼내는 값 | `postId`, `postComments`, `_deleteComment` | `postId`, `postComments` |
+
+#### 코드 상세 설명
+
+> 줄 번호는 **10-5 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다.
+
+**① `PostCommentListItem`: 댓글 한 줄을 그린다 (210~244번 줄)**
+
+```tsx
+212  function PostCommentListItem({
+213    comment,
+214    postCommentsState,
+215  }: {
+216    comment: PostCommentDto;
+217    postCommentsState: ReturnType<typeof usePostComments>;
+218  }) {
+219    const { deleteComment: _deleteComment } = postCommentsState;
+222    const deleteComment = (commentId: number) => {
+233      <li className="flex gap-2 items-center">
+238          onClick={() => deleteComment(comment.id)}
+```
+
+- **[213, 216]** `comment: PostCommentDto`: 이 줄이 그릴 **댓글 하나**를 받습니다. 10-4에서는 `map((comment) => ...)`의 `comment` 변수를 `<li>` 안에서 바로 썼지만, 이제 다른 함수(컴포넌트)로 나갔으니 props로 받아야 합니다.
+- **[214, 217]** 삭제 요청 함수를 쓰기 위해 훅 결과 객체도 받습니다.
+- **[219]** 삭제 함수만 꺼냅니다. 이 컴포넌트는 `postId`나 `postComments`(목록 전체)가 필요 없습니다.
+- **[222~229]** 확인창 붙은 `deleteComment`는 10-4의 `PostCommentList`에 있던 것을 그대로 옮겼습니다. 삭제 버튼(238번 줄)이 이제 여기 있으니 함께 따라왔습니다.
+- **[233~242]** `<li>` JSX는 10-4와 같습니다. 단, `key={comment.id}`가 빠졌습니다(②).
+
+**② `PostCommentList`: 목록 틀만 그리고, 한 줄은 맡긴다 (246~279번 줄)**
+
+```tsx
+253    const { postId, postComments } = postCommentsState;
+267            {postComments.map((comment) => (
+268              <PostCommentListItem
+269                key={comment.id}
+270                comment={comment}
+271                postCommentsState={postCommentsState}
+272              />
+273            ))}
+```
+
+- **[253]** 10-4의 `const { postId, postComments, deleteComment: _deleteComment } = postCommentsState;`에서 `_deleteComment`가 빠졌습니다. 삭제는 이제 `PostCommentListItem`이 맡습니다.
+- **[268~272]** `map`이 댓글마다 `<li>` 대신 `<PostCommentListItem />`을 만듭니다. 댓글이 3개면 `PostCommentListItem` 함수가 3번 호출됩니다.
+- **[270]** 그 줄이 그릴 댓글 하나를 넘깁니다. **[271]** 받은 훅 결과 객체를 그대로 다시 넘깁니다.
+- **[269]** `key`는 **`map` 안에서, 바깥쪽 태그에** 붙입니다. React는 `map`이 만든 형제들 중 누가 누군지 `key`로 구분합니다. 이제 형제가 `<PostCommentListItem>`들이므로 여기에 붙입니다. `key`는 React가 쓰는 표식이라 props로 넘어가지 않습니다(`PostCommentListItem`에서 `key`를 꺼낼 수 없음).
+
+**왜 한 줄을 컴포넌트로 빼나?**
+
+- 다음 11장(댓글 수정)에서 댓글마다 "수정 모드인지 아닌지"를 기억해야 합니다. `useState`는 컴포넌트 함수의 맨 위에서만 부를 수 있어서 `map` 안에서는 쓸 수 없습니다. 댓글 한 줄이 컴포넌트가 되면 그 안에서 `useState`를 써서 **댓글마다 따로** 상태를 가질 수 있습니다.
+
+**결과 화면**: 구조만 바꿔서 화면이 10-4와 같으므로, 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 10-4 줄 번호, 오른쪽 숫자는 10-5 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
+
+![10-5 변경점](docs/images/10-5-diff.png)
+
 ---
 
 ## 마무리
