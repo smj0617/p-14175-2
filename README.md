@@ -1809,6 +1809,112 @@ function PostInfo({
 
 - 세 번째 화면: 34번 댓글만 수정 폼(기존 내용이 채워짐)으로 바뀌고 버튼이 "수정취소"가 되었습니다. 35번 댓글은 그대로입니다(댓글마다 state를 따로 가짐).
 
+### 커밋 11-2: 수정 폼 입력 검사 → PUT → `map`으로 댓글 내용 갱신 (50강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+| 위치 | 추가한 것 |
+|---|---|
+| `usePostComments` 훅 | `modifyComment(commentId, content, onSuccess)`: PUT 요청 → 성공하면 state에서 그 댓글의 내용만 바꿈 |
+| `PostCommentListItem` | `handleModifyFormSubmit`: 입력 검사 → `modifyComment` 호출 → 성공하면 알림 + 수정 폼 닫기 |
+| 수정 폼 textarea | `autoFocus`: 폼이 열리면 바로 입력칸에 커서 |
+
+#### 코드 상세 설명
+
+> 줄 번호는 **11-2 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다.
+
+**① 훅에 `modifyComment` 추가 (93~123번 줄)**
+
+```tsx
+ 94  const modifyComment = (
+ 95    commentId: number,
+ 96    content: string,
+ 97    onSuccess: (data: { msg: string }) => void,
+ 98  ) => {
+ 99    apiFetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
+100      method: "PUT",
+101      body: JSON.stringify({ content }),
+102    })
+...
+108        setPostComments(
+109          postComments.map((comment) =>
+110            comment.id === commentId ? { ...comment, content } : comment,
+111          ),
+112        );
+114        onSuccess(data);
+...
+123  return { postId, postComments, deleteComment, writeComment, modifyComment };
+```
+
+- **[94~98]** 댓글 번호, 새 내용, 성공 콜백을 받습니다. `deleteComment`(번호 + 콜백), `writeComment`(내용 + 콜백)를 합친 모양입니다.
+- **[99~101]** `PUT /api/v1/posts/35/comments/34`로 `{ "content": "새 내용" }`을 보냅니다. 6-2 글 수정과 같은 방식이고, `postId`는 훅이 기억하는 값(클로저)입니다.
+- **[109~110]** 성공하면 화면의 목록도 바꿔야 합니다. 서버에서 목록을 다시 받아오지 않고 **state를 직접 고칩니다**.
+  - `map`: 배열의 원소를 하나씩 바꾼 **새 배열**을 만듭니다. 원소 수는 그대로입니다.
+  - `comment.id === commentId ? { ...comment, content } : comment`: 수정한 댓글이면 새 객체, 아니면 원래 객체 그대로.
+  - `{ ...comment, content }`: 기존 댓글의 모든 값(`id`, `createDate` 등)을 펼쳐 넣고 `content`만 새 값으로 덮어쓴 **새 객체**입니다. `comment.content = content`처럼 기존 객체를 직접 고치면 React가 바뀐 것을 알아채지 못합니다.
+
+| 댓글 기능 | state 바꾸기 | 결과 |
+|---|---|---|
+| 8-1 삭제 | `filter(c => c.id != commentId)` | 그 댓글만 뺀 새 배열 |
+| 9-2 작성 | `[...postComments, data.data]` | 끝에 새 댓글을 더한 새 배열 |
+| **11-2 수정** | `map(c => c.id === commentId ? { ...c, content } : c)` | 그 댓글 내용만 바꾼 새 배열 |
+
+- **[123]** 돌려주는 객체에 `modifyComment`를 추가했습니다. 10-3에서 훅 결과를 **통째로** 넘기고 타입을 `ReturnType`으로 받게 해 두었으므로, `Page`, `PostCommentWriteAndList`, `PostCommentList`는 **한 줄도 고치지 않고** 이 함수가 `PostCommentListItem`까지 전달됩니다.
+
+**② `PostCommentListItem`: 수정 폼 제출 처리 (250번 줄, 267~297번 줄)**
+
+```tsx
+250    const { deleteComment: _deleteComment, modifyComment } = postCommentsState;
+268    const handleModifyFormSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+269      e.preventDefault();
+277      contentTextarea.value = contentTextarea.value.trim();
+279      if (contentTextarea.value.length === 0) { ... return; }
+285      if (contentTextarea.value.length < 2) { ... return; }
+291      modifyComment(comment.id, contentTextarea.value, (data) => {
+292        alert(data.msg);
+295        toggleModifyMode();
+296      });
+297    };
+```
+
+- **[250]** 훅 결과에서 `modifyComment`도 꺼냅니다(123번 줄에서 추가한 것).
+- **[268~289]** 댓글 작성 폼의 `handleCommentWriteFormSubmit`(186번 줄~)과 같은 입력 검사입니다. 새로고침 막기 → `trim` → 빈 값 → 2자 미만. 백엔드 수정 API도 `@Size(min = 2, max = 100)` 제약이 있어서 같은 기준을 씁니다.
+- **[291]** 검사를 통과하면 `modifyComment(이 댓글 번호, 새 내용, 성공 콜백)`을 부릅니다. `comment.id`는 이 컴포넌트가 props로 받은 댓글입니다.
+- **[292]** 성공하면 백엔드 메시지(`35번 댓글이 수정되었습니다.`)를 띄웁니다.
+- **[295]** `toggleModifyMode()`: `modifyMode`를 `false`로 돌려 수정 폼을 닫습니다. 그러면 11-1의 `{!modifyMode && ...}`가 다시 댓글 내용을 그리는데, 이때 `comment.content`는 이미 110번 줄에서 바뀐 **새 내용**입니다.
+
+**③ 수정 폼 연결 (313번 줄, 322번 줄)**
+
+```tsx
+313            onSubmit={handleModifyFormSubmit}
+322              autoFocus
+```
+
+- **[313]** 11-1의 `onSubmit={(e) => e.preventDefault()}`를 `handleModifyFormSubmit`으로 바꿨습니다. 이제 폼의 "수정" 버튼을 누르면 저장됩니다.
+- **[322]** `autoFocus`: 수정 폼이 화면에 나타나는 순간 이 입력칸에 커서가 갑니다. "수정"을 누르고 바로 타이핑할 수 있습니다.
+
+**전체 흐름**
+
+```
+35번 댓글 "수정" 클릭 → modifyMode = true → 수정 폼 표시(기존 내용, 커서)
+→ 내용 고치고 폼의 "수정" 클릭 → handleModifyFormSubmit → 검사
+→ modifyComment → PUT 요청 → 성공
+→ setPostComments(map) → 35번 댓글 내용만 새 값
+→ alert("35번 댓글이 수정되었습니다.") → toggleModifyMode → 폼 닫힘, 새 내용 표시
+```
+
+**결과 화면** (35번 글의 35번 댓글 수정)
+
+| ① 비운 채 저장 | ② 새 내용 입력 |
+|---|---|
+| ![빈 값](docs/images/11-2-empty.png) | ![입력](docs/images/11-2-before.png) |
+
+| ③ 저장 → 완료 alert | ④ 확인 → 폼이 닫히고 새 내용 표시 |
+|---|---|
+| ![alert](docs/images/11-2-alert.png) | ![후](docs/images/11-2.png) |
+
+- 11-1까지는 폼의 "수정"을 눌러도 아무 일이 없었습니다(`docs/images/11-1-modify.png`).
+
 ---
 
 ## 마무리

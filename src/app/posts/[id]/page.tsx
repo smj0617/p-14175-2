@@ -90,9 +90,37 @@ function usePostComments(postId: number) {
       });
   };
 
+  // 댓글 수정 요청. 성공하면 화면의 목록에서 그 댓글의 내용만 바꾼다
+  const modifyComment = (
+    commentId: number,
+    content: string,
+    onSuccess: (data: { msg: string }) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    })
+      .then((data) => {
+        if (postComments == null) return;
+
+        // map: 모든 댓글을 하나씩 바꾼 "새 배열"을 만든다
+        // 수정한 댓글이면 내용만 바꾼 새 객체, 아니면 그대로
+        setPostComments(
+          postComments.map((comment) =>
+            comment.id === commentId ? { ...comment, content } : comment,
+          ),
+        );
+
+        onSuccess(data);
+      })
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+      });
+  };
+
   // 이 훅이 어느 글의 댓글을 다루는지(postId)도 함께 돌려준다
   // → 하위 컴포넌트가 글 번호를 props로 따로 받지 않아도 된다
-  return { postId, postComments, deleteComment, writeComment };
+  return { postId, postComments, deleteComment, writeComment, modifyComment };
 }
 
 // 컴포넌트 1: 글 정보(번호, 제목, 내용) + 삭제/수정 버튼
@@ -219,7 +247,7 @@ function PostCommentListItem({
   // 이 댓글 한 줄이 지금 수정 중인지 기억하는 state (댓글마다 따로 가진다)
   const [modifyMode, setModifyMode] = useState(false);
 
-  const { deleteComment: _deleteComment } = postCommentsState;
+  const { deleteComment: _deleteComment, modifyComment } = postCommentsState;
 
   // 수정 ↔ 수정취소 버튼: 누를 때마다 true/false를 뒤집는다
   const toggleModifyMode = () => {
@@ -236,6 +264,38 @@ function PostCommentListItem({
     });
   };
 
+  // 수정 폼을 제출했을 때 실행 (댓글 작성 폼과 같은 입력 검사)
+  const handleModifyFormSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
+
+    contentTextarea.value = contentTextarea.value.trim();
+
+    if (contentTextarea.value.length === 0) {
+      alert("댓글 내용을 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    if (contentTextarea.value.length < 2) {
+      alert("댓글 내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    modifyComment(comment.id, contentTextarea.value, (data) => {
+      alert(data.msg);
+
+      // 저장이 끝났으니 수정 폼을 닫고 바뀐 내용을 보여 준다
+      toggleModifyMode();
+    });
+  };
+
   // key는 여기가 아니라 이 컴포넌트를 부르는 쪽(map 안)에 붙인다
   return (
     <li className="flex gap-2 items-center">
@@ -246,11 +306,11 @@ function PostCommentListItem({
         <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
       )}
 
-      {/* 수정 중일 때: 기존 내용이 채워진 수정 폼 (저장은 다음 커밋에서) */}
+      {/* 수정 중일 때: 기존 내용이 채워진 수정 폼 */}
       {modifyMode && (
         <form
           className="flex gap-2 items-center"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={handleModifyFormSubmit}
         >
           <textarea
             className="border p-2 rounded"
@@ -259,6 +319,7 @@ function PostCommentListItem({
             maxLength={100}
             rows={3}
             defaultValue={comment.content}
+            autoFocus
           />
           <button className="p-2 rounded border cursor-pointer" type="submit">
             수정
