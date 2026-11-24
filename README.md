@@ -54,6 +54,8 @@ pnpm dev
 7. 댓글 다건조회
 8. 댓글 삭제
 9. 댓글 작성
+10. 리팩토링 (강의 35 ~ 48강. 35·36·38~40강 내용은 3-2, 5-2, 7-2, 9-1에서 이미 적용)
+11. 댓글 수정 (강의 49 ~ 51강)
 
 ---
 
@@ -948,6 +950,70 @@ apiFetch(`/api/v1/posts/${postId}/comments`, {
 | ① 댓글 입력 | ② 작성 → 완료 alert | ③ 확인 → 목록 끝에 35번 댓글, 입력칸 비워짐 |
 |---|---|---|
 | ![입력](docs/images/9-2-before.png) | ![alert](docs/images/9-2-alert.png) | ![후](docs/images/9-2.png) |
+
+---
+
+## 10. 리팩토링
+
+9-2까지 `src/app/posts/[id]/page.tsx`의 `Page()` 하나가 글 정보, 댓글 작성 폼, 댓글 목록을 모두 그렸습니다. 기능은 그대로 두고 **화면 조각마다 컴포넌트로 나눕니다**.
+
+> 강의(45강)에서도 말하듯 컴포넌트 구조화는 필수가 아닙니다. 다만 파일이 길어질수록 "이 화면 조각은 어디서 그리지?"를 찾기 쉬워집니다.
+
+### 커밋 10-1: `PostInfo`, `PostCommentWriteAndList` 컴포넌트로 분리 (37강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+| 컴포넌트 | 그리는 것 | 부모에게 받는 값(props) |
+|---|---|---|
+| `PostInfo` | 번호, 제목, 내용, 삭제/수정 버튼 | `post`, `deletePost` |
+| `PostCommentWriteAndList` | 댓글 작성 폼 + 댓글 목록 | `id`, `postComments`, `deleteComment`, `writeComment` |
+| `Page` | 위 두 컴포넌트를 배치 | (주소에서 `id`를 읽고 훅을 호출) |
+
+```tsx
+// Page의 return이 이만큼 짧아졌다
+<h1>글 상세페이지</h1>
+
+<PostInfo post={post} deletePost={deletePost} />
+
+<hr className="my-2" />
+
+<PostCommentWriteAndList
+  id={id}
+  postComments={postComments}
+  deleteComment={deleteComment}
+  writeComment={writeComment}
+/>
+```
+
+**컴포넌트와 props**
+
+- 컴포넌트는 **JSX를 돌려주는 함수**입니다. `Page`도 컴포넌트입니다. 이름은 대문자로 시작해야 `<PostInfo />`처럼 태그로 쓸 수 있습니다.
+- `<PostInfo post={post} />`처럼 태그에 붙인 값들은 **객체 하나**로 묶여 함수의 첫 번째 인자로 들어옵니다. 이것을 **props**라고 합니다.
+- 받는 쪽에서는 구조 분해로 꺼냅니다. 콜론 뒤는 그 객체의 타입입니다.
+
+```tsx
+function PostInfo({
+  post,          // props.post
+  deletePost,    // props.deletePost
+}: {
+  post: PostDto;
+  deletePost: () => void;   // 인자 없이 호출하고 돌려주는 값이 없는 함수
+}) { ... }
+```
+
+- 스프링에 비유하면 메서드에 매개변수를 넘기는 것과 같습니다. 하위 컴포넌트는 부모의 변수를 직접 볼 수 없으므로 필요한 것을 **모두 props로 받아야** 합니다.
+- `handleCommentWriteFormSubmit`(댓글 작성 폼 제출 처리)은 그 폼을 그리는 `PostCommentWriteAndList` 안으로 옮겼습니다. 확인창이 있는 `deletePost`, `deleteComment`는 아직 `Page`에 남아 있습니다(10-3에서 옮김).
+
+**아쉬운 점** (다음 커밋에서 개선)
+
+- 훅이 돌려준 값을 `Page`에서 하나하나 꺼냈다가 다시 하나하나 넘깁니다. 넘길 값이 늘면 `Page`와 하위 컴포넌트를 둘 다 고쳐야 합니다.
+- `writeComment`의 타입 `(content: string, onSuccess: ...) => void`를 훅과 컴포넌트 두 곳에 똑같이 적었습니다.
+
+**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/9-2.png) | ![후](docs/images/10-1.png) |
 
 ---
 

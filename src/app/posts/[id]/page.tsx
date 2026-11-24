@@ -93,48 +93,49 @@ function usePostComments(postId: number) {
   return { postComments, deleteComment, writeComment };
 }
 
-export default function Page() {
-  // 코드로 페이지를 이동할 때 쓰는 도구
-  const router = useRouter();
+// 컴포넌트 1: 글 정보(번호, 제목, 내용) + 삭제/수정 버튼
+// 부모(Page)가 넘겨준 값(props)만 가지고 화면을 그린다
+function PostInfo({
+  post,
+  deletePost,
+}: {
+  post: PostDto;
+  deletePost: () => void;
+}) {
+  return (
+    <>
+      <div>번호 : {post.id}</div>
+      <div>제목 : {post.title}</div>
+      <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
 
-  // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
-  const { id: idStr } = useParams<{ id: string }>();
-  const id = Number(idStr);
+      <div className="flex gap-2">
+        <button className="p-2 rounded border cursor-pointer" onClick={deletePost}>
+          삭제
+        </button>
+        <Link className="p-2 rounded border" href={`/posts/${post.id}/edit`}>
+          수정
+        </Link>
+      </div>
+    </>
+  );
+}
 
-  // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
-  const { post, deletePost: _deletePost } = usePost(id);
-  const {
-    postComments,
-    deleteComment: _deleteComment,
-    writeComment,
-  } = usePostComments(id);
-
-  if (post == null) return <div>로딩중...</div>;
-
-  // 삭제 버튼을 눌렀을 때 실행: 확인 창 + 성공 후 이동은 화면(페이지)의 몫
-  const deletePost = () => {
-    // 취소를 누르면 confirm이 false → 여기서 끝냄
-    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
-
-    _deletePost((data) => {
-      alert(data.msg);
-
-      // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
-      router.replace("/posts");
-    });
-  };
-
-  // 댓글 삭제 버튼을 눌렀을 때 실행
-  const deleteComment = (commentId: number) => {
-    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
-
-    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
-    _deleteComment(commentId, (data) => {
-      alert(data.msg);
-    });
-  };
-
-  // 댓글 작성 폼을 제출했을 때 실행 (5-1, 5-2 글쓰기 폼과 같은 방식)
+// 컴포넌트 2: 댓글 작성 폼 + 댓글 목록
+function PostCommentWriteAndList({
+  id,
+  postComments,
+  deleteComment,
+  writeComment,
+}: {
+  id: number;
+  postComments: PostCommentDto[] | null;
+  deleteComment: (commentId: number) => void;
+  writeComment: (
+    content: string,
+    onSuccess: (data: { msg: string }) => void,
+  ) => void;
+}) {
+  // 댓글 작성 폼을 제출했을 때 실행 (Page에 있던 것을 그대로 옮김)
   const handleCommentWriteFormSubmit = (
     e: React.SyntheticEvent<HTMLFormElement>,
   ) => {
@@ -170,23 +171,6 @@ export default function Page() {
 
   return (
     <>
-      <h1>글 상세페이지</h1>
-
-      <div>번호 : {post.id}</div>
-      <div>제목 : {post.title}</div>
-      <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
-
-      <div className="flex gap-2">
-        <button className="p-2 rounded border cursor-pointer" onClick={deletePost}>
-          삭제
-        </button>
-        <Link className="p-2 rounded border" href={`/posts/${post.id}/edit`}>
-          수정
-        </Link>
-      </div>
-
-      <hr className="my-2" />
-
       <h2>{id}번 글에 대한 댓글 작성</h2>
 
       <form
@@ -231,6 +215,66 @@ export default function Page() {
           ))}
         </ul>
       )}
+    </>
+  );
+}
+
+export default function Page() {
+  // 코드로 페이지를 이동할 때 쓰는 도구
+  const router = useRouter();
+
+  // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
+  const { id: idStr } = useParams<{ id: string }>();
+  const id = Number(idStr);
+
+  // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
+  const { post, deletePost: _deletePost } = usePost(id);
+  const {
+    postComments,
+    deleteComment: _deleteComment,
+    writeComment,
+  } = usePostComments(id);
+
+  if (post == null) return <div>로딩중...</div>;
+
+  // 삭제 버튼을 눌렀을 때 실행: 확인 창 + 성공 후 이동은 화면(페이지)의 몫
+  const deletePost = () => {
+    // 취소를 누르면 confirm이 false → 여기서 끝냄
+    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+
+    _deletePost((data) => {
+      alert(data.msg);
+
+      // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
+      router.replace("/posts");
+    });
+  };
+
+  // 댓글 삭제 버튼을 눌렀을 때 실행
+  const deleteComment = (commentId: number) => {
+    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+
+    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
+    _deleteComment(commentId, (data) => {
+      alert(data.msg);
+    });
+  };
+
+  // Page는 이제 "데이터 준비 + 하위 컴포넌트 배치"만 한다
+  return (
+    <>
+      <h1>글 상세페이지</h1>
+
+      <PostInfo post={post} deletePost={deletePost} />
+
+      <hr className="my-2" />
+
+      <PostCommentWriteAndList
+        id={id}
+        postComments={postComments}
+        deleteComment={deleteComment}
+        writeComment={writeComment}
+      />
     </>
   );
 }
