@@ -90,7 +90,9 @@ function usePostComments(postId: number) {
       });
   };
 
-  return { postComments, deleteComment, writeComment };
+  // 이 훅이 어느 글의 댓글을 다루는지(postId)도 함께 돌려준다
+  // → 하위 컴포넌트가 글 번호를 props로 따로 받지 않아도 된다
+  return { postId, postComments, deleteComment, writeComment };
 }
 
 // 컴포넌트 1: 글 정보(번호, 제목, 내용) + 삭제/수정 버튼
@@ -138,33 +140,17 @@ function PostInfo({ postState }: { postState: ReturnType<typeof usePost> }) {
   );
 }
 
-// 컴포넌트 2: 댓글 작성 폼 + 댓글 목록
+// 컴포넌트 2-1: 댓글 작성 폼
 // postCommentsState = usePostComments가 돌려준 객체 통째로
-function PostCommentWriteAndList({
-  id,
+function PostCommentWrite({
   postCommentsState,
 }: {
-  id: number;
   postCommentsState: ReturnType<typeof usePostComments>;
 }) {
-  // 받은 객체에서 필요한 것을 꺼낸다
-  const {
-    postComments,
-    deleteComment: _deleteComment,
-    writeComment,
-  } = postCommentsState;
+  // 글 번호(postId)도 훅이 함께 돌려주므로 props로 따로 받을 필요가 없다
+  const { postId, writeComment } = postCommentsState;
 
-  // 댓글 삭제 버튼을 눌렀을 때 실행 (Page에 있던 것을 옮김)
-  const deleteComment = (commentId: number) => {
-    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
-
-    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
-    _deleteComment(commentId, (data) => {
-      alert(data.msg);
-    });
-  };
-
-  // 댓글 작성 폼을 제출했을 때 실행 (Page에 있던 것을 그대로 옮김)
+  // 댓글 작성 폼을 제출했을 때 실행
   const handleCommentWriteFormSubmit = (
     e: React.SyntheticEvent<HTMLFormElement>,
   ) => {
@@ -200,7 +186,7 @@ function PostCommentWriteAndList({
 
   return (
     <>
-      <h2>{id}번 글에 대한 댓글 작성</h2>
+      <h2>{postId}번 글에 대한 댓글 작성</h2>
 
       <form
         className="flex gap-2 items-center"
@@ -217,10 +203,35 @@ function PostCommentWriteAndList({
           작성
         </button>
       </form>
+    </>
+  );
+}
 
-      <hr className="my-2" />
+// 컴포넌트 2-2: 댓글 목록
+function PostCommentList({
+  postCommentsState,
+}: {
+  postCommentsState: ReturnType<typeof usePostComments>;
+}) {
+  const {
+    postId,
+    postComments,
+    deleteComment: _deleteComment,
+  } = postCommentsState;
 
-      <h2>{id}번 글에 대한 댓글 목록</h2>
+  // 댓글 삭제 버튼을 눌렀을 때 실행
+  const deleteComment = (commentId: number) => {
+    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+
+    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
+    _deleteComment(commentId, (data) => {
+      alert(data.msg);
+    });
+  };
+
+  return (
+    <>
+      <h2>{postId}번 글에 대한 댓글 목록</h2>
 
       {postComments == null && <div>댓글 로딩중...</div>}
 
@@ -248,6 +259,23 @@ function PostCommentWriteAndList({
   );
 }
 
+// 컴포넌트 2: 댓글 작성 폼 + 댓글 목록을 배치만 한다
+function PostCommentWriteAndList({
+  postCommentsState,
+}: {
+  postCommentsState: ReturnType<typeof usePostComments>;
+}) {
+  return (
+    <>
+      <PostCommentWrite postCommentsState={postCommentsState} />
+
+      <hr className="my-2" />
+
+      <PostCommentList postCommentsState={postCommentsState} />
+    </>
+  );
+}
+
 export default function Page() {
   // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
   const { id: idStr } = useParams<{ id: string }>();
@@ -267,7 +295,7 @@ export default function Page() {
 
       <hr className="my-2" />
 
-      <PostCommentWriteAndList id={id} postCommentsState={postCommentsState} />
+      <PostCommentWriteAndList postCommentsState={postCommentsState} />
     </>
   );
 }

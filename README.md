@@ -1560,6 +1560,116 @@ function PostInfo({
 |---|---|
 | ![전](docs/images/10-2.png) | ![후](docs/images/10-3.png) |
 
+### 커밋 10-4: `PostCommentWrite`, `PostCommentList`로 분리, 훅이 `postId` 제공 (44, 46, 47강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+10-3의 `PostCommentWriteAndList` 하나가 댓글 작성 폼과 댓글 목록을 모두 그렸습니다. 이것을 두 컴포넌트로 나누고, `PostCommentWriteAndList`는 둘을 **배치만** 하게 바꿨습니다. 또 `Page`가 `id`를 따로 넘기던 것을 없애고, 훅이 `postId`를 함께 돌려주게 했습니다.
+
+| 컴포넌트 | 10-3 | 10-4 |
+|---|---|---|
+| `PostCommentWrite` (새로 생김) | | 댓글 작성 폼 + `handleCommentWriteFormSubmit` |
+| `PostCommentList` (새로 생김) | | 댓글 목록 + 확인창 붙은 `deleteComment` |
+| `PostCommentWriteAndList` | 폼과 목록을 모두 그림 | 위 두 컴포넌트를 배치만 함 |
+| 글 번호 | `Page`가 `id={id}`로 따로 넘김 | 훅이 `postId`로 돌려줌 |
+
+#### 코드 상세 설명
+
+> 줄 번호는 **10-4 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다.
+
+**① 훅이 `postId`도 돌려준다 (37번 줄, 95번 줄) — 46강**
+
+```tsx
+ 37  function usePostComments(postId: number) {
+ 95    return { postId, postComments, deleteComment, writeComment };
+```
+
+- **[37]** `usePostComments`는 처음부터 글 번호를 `postId`라는 매개변수로 받고 있었습니다. 훅 안의 `deleteComment`, `writeComment`가 주소를 만들 때 이 `postId`를 씁니다. 함수 안에서 바깥 변수를 기억해 쓰는 것을 **클로저**라고 합니다.
+- **[95]** 10-3의 `return { postComments, deleteComment, writeComment };`에 `postId`를 추가했습니다. 훅이 **이미 알고 있는 값**이므로 같이 돌려주면, 하위 컴포넌트가 `postCommentsState.postId`로 꺼내 쓸 수 있습니다.
+- 그래서 `Page`가 글 번호를 따로 넘길 필요가 없어졌습니다(⑤).
+- 47강의 "`id` 대신 `postId`라는 이름"은 이미 7-2에서 매개변수 이름을 `postId`로 지어 두어서 이번에 따로 바꿀 것이 없습니다. 하위 컴포넌트에서도 `id`가 아니라 `postId`로 꺼내므로, 이것이 **글 번호**인지 **댓글 번호**인지 헷갈리지 않습니다.
+
+**② `PostCommentWrite`: 댓글 작성 폼만 그린다 (143~207번 줄) — 44강**
+
+```tsx
+145  function PostCommentWrite({
+146    postCommentsState,
+147  }: {
+148    postCommentsState: ReturnType<typeof usePostComments>;
+149  }) {
+151    const { postId, writeComment } = postCommentsState;
+154    const handleCommentWriteFormSubmit = (
+189        <h2>{postId}번 글에 대한 댓글 작성</h2>
+```
+
+- **[146~148]** 10-3과 같은 방식으로 훅 결과 객체를 통째로 받습니다. 타입도 `ReturnType`이라 95번 줄에 `postId`를 추가한 것이 자동으로 반영됩니다.
+- **[151]** 폼에 필요한 `postId`와 `writeComment`만 꺼냅니다. `postComments`, `deleteComment`는 이 컴포넌트에서 쓰지 않으므로 꺼내지 않습니다.
+- **[154~185]** `handleCommentWriteFormSubmit`은 10-3의 `PostCommentWriteAndList`에 있던 것을 그대로 옮겼습니다.
+- **[189]** 10-3의 `<h2>{id}번 글에 대한 댓글 작성</h2>`가 `{postId}`로 바뀌었습니다. props `id` 대신 151번 줄에서 훅 결과로부터 꺼낸 값입니다.
+- **[191~205]** 폼 JSX는 그대로 옮겼습니다.
+
+**③ `PostCommentList`: 댓글 목록만 그린다 (209~259번 줄) — 44강**
+
+```tsx
+211  function PostCommentList({
+212    postCommentsState,
+213  }: {
+214    postCommentsState: ReturnType<typeof usePostComments>;
+215  }) {
+216    const {
+217      postId,
+218      postComments,
+219      deleteComment: _deleteComment,
+220    } = postCommentsState;
+223    const deleteComment = (commentId: number) => {
+234        <h2>{postId}번 글에 대한 댓글 목록</h2>
+```
+
+- **[216~220]** 목록에 필요한 `postId`, `postComments`, `_deleteComment`만 꺼냅니다. `writeComment`는 쓰지 않으므로 꺼내지 않습니다.
+- **[219]** `_deleteComment`로 이름을 바꾸는 이유는 223번 줄 버튼용 `deleteComment` 때문입니다(10-2와 같음).
+- **[223~230]** 확인창 붙은 `deleteComment`는 삭제 버튼이 있는 이 컴포넌트로 따라왔습니다.
+- **[234]** `{id}` → `{postId}`.
+- **[236~257]** 로딩/없음/목록 세 가지 상태와 `map` 목록 JSX는 그대로 옮겼습니다.
+
+**④ `PostCommentWriteAndList`: 배치만 한다 (261~277번 줄)**
+
+```tsx
+263  function PostCommentWriteAndList({
+264    postCommentsState,
+265  }: {
+266    postCommentsState: ReturnType<typeof usePostComments>;
+267  }) {
+268    return (
+269      <>
+270        <PostCommentWrite postCommentsState={postCommentsState} />
+272        <hr className="my-2" />
+274        <PostCommentList postCommentsState={postCommentsState} />
+275      </>
+276    );
+277  }
+```
+
+- **[264]** `id` props가 빠지고 `postCommentsState` 하나만 받습니다.
+- **[270, 274]** 받은 객체를 두 하위 컴포넌트에 **그대로 다시 넘깁니다**. 각 컴포넌트가 필요한 것만 꺼내 씁니다(151번 줄, 216~220번 줄).
+- **[272]** 폼과 목록 사이 구분선은 두 컴포넌트 **사이**에 있으므로 여기에 둡니다(10-1에서 `Page`에 `<hr>`을 남긴 것과 같은 이유).
+- 이렇게 하면 `Page` → `PostCommentWriteAndList` → `PostCommentWrite`/`PostCommentList`로 같은 객체가 차례로 전달됩니다. 중간 컴포넌트는 내용을 몰라도 그냥 넘겨주기만 합니다.
+
+**⑤ `Page`: `id`를 넘기지 않는다 (298번 줄)**
+
+```tsx
+286    const postCommentsState = usePostComments(id);
+298        <PostCommentWriteAndList postCommentsState={postCommentsState} />
+```
+
+- **[286]** `id`는 훅을 부를 때 한 번만 넘깁니다. 훅이 기억해 두었다가 95번 줄에서 `postId`로 돌려줍니다.
+- **[298]** 10-3의 `<PostCommentWriteAndList id={id} postCommentsState={postCommentsState} />`에서 `id={id}`가 빠졌습니다.
+
+**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/10-3.png) | ![후](docs/images/10-4.png) |
+
 ---
 
 ## 마무리
