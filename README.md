@@ -1004,6 +1004,150 @@ function PostInfo({
 - 스프링에 비유하면 메서드에 매개변수를 넘기는 것과 같습니다. 하위 컴포넌트는 부모의 변수를 직접 볼 수 없으므로 필요한 것을 **모두 props로 받아야** 합니다.
 - `handleCommentWriteFormSubmit`(댓글 작성 폼 제출 처리)은 그 폼을 그리는 `PostCommentWriteAndList` 안으로 옮겼습니다. 확인창이 있는 `deletePost`, `deleteComment`는 아직 `Page`에 남아 있습니다(10-3에서 옮김).
 
+#### 코드 상세 설명
+
+실행 순서대로 `Page` → `PostInfo` → `PostCommentWriteAndList` → 버튼을 눌렀을 때의 흐름 순으로 설명합니다. 훅 `usePost`, `usePostComments`는 이번 커밋에서 바뀌지 않았습니다.
+
+**① `Page`: 데이터를 준비하고 화면 조각을 배치**
+
+`/posts/35`로 접속하면 Next.js가 이 파일의 `export default` 함수 `Page`를 실행합니다. 나머지 컴포넌트는 `Page`가 가져다 쓰는 부품입니다.
+
+```tsx
+const { id: idStr } = useParams<{ id: string }>();
+const id = Number(idStr);
+```
+
+- 폴더 이름이 `[id]`이므로 `/posts/35`의 `35`가 `id`라는 이름으로 들어옵니다. 주소에서 꺼낸 값은 항상 **문자열**입니다.
+- `{ id: idStr }`: 구조 분해하면서 이름을 바꿉니다. `id`라는 이름은 숫자용으로 쓰기 위해서입니다.
+
+```tsx
+const { post, deletePost: _deletePost } = usePost(id);
+const { postComments, deleteComment: _deleteComment, writeComment } = usePostComments(id);
+```
+
+- `post`는 처음엔 `null`입니다. 응답이 와서 `setPost`가 호출되면 React가 `Page`를 **처음부터 다시 실행**합니다.
+- `_deletePost`, `_deleteComment`처럼 이름을 바꾼 이유: 아래에서 확인창이 붙은 같은 이름의 함수를 새로 만들기 때문입니다.
+- 훅은 조기 `return`보다 **위에서** 호출합니다. React는 매번 같은 순서로 훅이 호출된다고 가정하고 state를 기억하기 때문입니다(7-1).
+
+```tsx
+if (post == null) return <div>로딩중...</div>;
+```
+
+- 응답 전에는 로딩 표시만 그리고 끝냅니다. 이 줄 아래에서는 TypeScript도 `post`가 `null`이 아님을 알아서 `post.id`를 쓸 수 있습니다.
+
+```tsx
+const deletePost = () => {
+  if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+  _deletePost((data) => {
+    alert(data.msg);
+    router.replace("/posts");
+  });
+};
+```
+
+- 함수를 **만들어 두기만** 합니다. 실행은 버튼을 누를 때입니다.
+- `_deletePost`(훅)는 DELETE 요청이라는 **데이터** 일을 하고, `deletePost`(여기)는 확인창·알림·이동이라는 **화면 반응** 일을 합니다.
+- `deleteComment`도 같은 구조입니다. 목록에서 댓글이 빠지는 것은 훅이 `filter`로 state를 바꿔서 처리합니다(8-1).
+
+```tsx
+<PostInfo post={post} deletePost={deletePost} />
+```
+
+- 태그처럼 보이지만 실제로는 `PostInfo({ post: post, deletePost: deletePost })`처럼 **함수를 호출**하는 것입니다. 태그에 붙인 값들이 객체 하나(props)로 묶여 넘어갑니다.
+- `post={post}`에서 왼쪽은 **받는 쪽이 쓸 이름**, 오른쪽 `{post}`는 **`Page`의 변수 값**입니다.
+- 함수도 값처럼 넘깁니다. `deletePost()`처럼 괄호를 붙이면 그 자리에서 실행되어 버립니다.
+
+**② `PostInfo`: 글 정보와 버튼**
+
+```tsx
+function PostInfo({ post, deletePost }: { post: PostDto; deletePost: () => void }) {
+```
+
+- 앞의 `{ post, deletePost }`는 props 구조 분해, 콜론 뒤는 props 객체의 **타입**입니다.
+- `() => void`: 인자 없이 호출하고 아무것도 돌려주지 않는 함수.
+- 타입 덕분에 `Page`에서 `deletePost`를 빠뜨리고 넘기면 TypeScript가 바로 오류를 냅니다.
+- `post`가 `PostDto | null`이 아닌 이유: `Page`가 `null`을 걸러낸 뒤에만 이 컴포넌트를 그리기 때문입니다.
+- `onClick={deletePost}`: 클릭되면 `Page`가 넘겨준 함수를 실행합니다. `PostInfo`는 삭제가 어떻게 처리되는지 모르고 **버튼이 눌렸다는 사실만 전달**합니다.
+- `<> ... </>`(Fragment): 컴포넌트는 덩어리 하나만 `return`할 수 있어서, 화면에 태그를 남기지 않고 여러 요소를 묶습니다.
+
+**③ `PostCommentWriteAndList`: 댓글 작성 폼 + 목록**
+
+| prop | 타입 | 어디서 왔나 |
+|---|---|---|
+| `id` | `number` | `Page`가 주소에서 꺼낸 글 번호 |
+| `postComments` | `PostCommentDto[] \| null` | `usePostComments`의 state (아직 응답 전이면 `null`) |
+| `deleteComment` | `(commentId: number) => void` | `Page`가 만든 "확인창 + 삭제" 함수 |
+| `writeComment` | `(content, onSuccess) => void` | 훅의 함수를 **그대로** 넘김 |
+
+- `postComments`에만 `| null`이 붙는 이유: `Page`는 글만 기다리고 댓글은 기다리지 않으므로, 댓글이 오기 전에 이 컴포넌트가 그려질 수 있습니다.
+
+`handleCommentWriteFormSubmit` (`Page`에서 옮겨 옴) 동작 순서
+
+1. `e.preventDefault()`: 폼 기본 동작(새로고침하며 전송)을 막습니다.
+2. `form.elements.namedItem("content")`: `name="content"`인 textarea를 찾습니다. **JSX의 `name`과 이름이 맞아야** 합니다.
+3. `trim()` → 빈 값 검사 → 2자 미만 검사. 걸리면 `alert` + `focus()` + `return`으로 멈춥니다.
+4. 통과하면 props로 받은 `writeComment(내용, 콜백)`을 호출합니다. 실제로는 훅 안의 함수가 POST를 보내고, 성공하면 state를 바꾼 뒤 콜백(알림 + 입력칸 비우기)을 실행합니다.
+
+- 이 함수를 옮긴 이유: 이 컴포넌트의 폼에서만 쓰기 때문입니다. 쓰는 곳 가까이 두면 폼을 고칠 때 한 컴포넌트만 보면 됩니다.
+
+댓글 목록의 상태 세 가지 (`조건 && <JSX>`: 참일 때만 그림)
+
+| 상태 | 화면 |
+|---|---|
+| `postComments == null` (응답 전) | 댓글 로딩중... |
+| 빈 배열 | 댓글이 없습니다. |
+| 1개 이상 | `<ul>` 목록 |
+
+```tsx
+{postComments.map((comment) => (
+  <li key={comment.id}>
+    ...
+    <button onClick={() => deleteComment(comment.id)}>삭제</button>
+  </li>
+))}
+```
+
+- `map`: 댓글 하나하나를 `<li>`로 바꾼 새 배열을 만듭니다.
+- `key`: React가 어떤 `<li>`가 어떤 댓글인지 구분하는 표식입니다. 추가·삭제 때 바뀐 줄만 다시 그립니다.
+- `onClick={() => deleteComment(comment.id)}`
+  - `onClick={deleteComment}` → 몇 번 댓글인지 전달할 수 없습니다.
+  - `onClick={deleteComment(comment.id)}` → 화면을 그리는 순간 바로 실행됩니다.
+  - 그래서 "클릭되면 이 번호로 불러 줘"라는 **새 화살표 함수**로 감쌉니다. 댓글마다 하나씩 만들어지고 각자 자기 `comment.id`를 기억합니다.
+
+**④ 버튼을 누르면 일어나는 일**
+
+```
+[글 삭제]
+PostInfo 삭제 버튼 → deletePost(Page가 만든 것) → confirm
+  → _deletePost(콜백) → usePost: DELETE /api/v1/posts/35
+  → 성공 → 콜백: alert → router.replace("/posts")
+
+[댓글 작성]
+PostCommentWriteAndList 폼 제출 → handleCommentWriteFormSubmit → 검사
+  → writeComment(내용, 콜백) → usePostComments: POST
+  → setPostComments([...기존, 새 댓글]) → Page 다시 실행 → 새 배열이 props로 내려감 → 목록 갱신
+  → 콜백: alert → 입력칸 비우기
+
+[댓글 삭제]
+() => deleteComment(34) → Page: confirm → _deleteComment(34, 콜백)
+  → usePostComments: DELETE → setPostComments(filter) → Page 다시 실행 → 목록에서 사라짐
+  → 콜백: alert
+```
+
+- **데이터(state)는 위(`Page`, 훅)에 있고 props를 타고 아래로 내려갑니다.**
+- 하위 컴포넌트는 데이터를 직접 바꾸지 못하고, **위에서 내려 준 함수를 호출해서** 바꿔 달라고 요청합니다.
+- state가 바뀌면 state를 가진 `Page`부터 다시 실행되고, 새 값이 props로 내려가 화면이 갱신됩니다.
+
+**⑤ 9-2 → 10-1 비교**
+
+| 코드 | 9-2 | 10-1 |
+|---|---|---|
+| 글 정보 JSX | `Page` | `PostInfo` |
+| 댓글 작성 폼·목록 JSX | `Page` | `PostCommentWriteAndList` |
+| `handleCommentWriteFormSubmit` | `Page` | `PostCommentWriteAndList` |
+| `deletePost`, `deleteComment` (확인창) | `Page` | `Page` (10-3에서 이동) |
+| 훅, 동작, 화면 | | 변화 없음 |
+
 **아쉬운 점** (다음 커밋에서 개선)
 
 - 훅이 돌려준 값을 `Page`에서 하나하나 꺼냈다가 다시 하나하나 넘깁니다. 넘길 값이 늘면 `Page`와 하위 컴포넌트를 둘 다 고쳐야 합니다.
