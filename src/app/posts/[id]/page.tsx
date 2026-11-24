@@ -97,11 +97,28 @@ function usePostComments(postId: number) {
 // 부모(Page)가 넘겨준 값(props)만 가지고 화면을 그린다
 function PostInfo({
   post,
-  deletePost,
+  deletePost: _deletePost,
 }: {
   post: PostDto;
-  deletePost: () => void;
+  deletePost: (onSuccess: (data: { msg: string }) => void) => void;
 }) {
+  // 페이지 이동 도구는 이제 이동이 필요한 이 컴포넌트가 직접 가져온다
+  const router = useRouter();
+
+  // 삭제 버튼을 눌렀을 때 실행 (Page에 있던 것을 옮김)
+  // 확인 창 + 성공 후 이동은 삭제 버튼을 그리는 이 컴포넌트의 몫
+  const deletePost = () => {
+    // 취소를 누르면 confirm이 false → 여기서 끝냄
+    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+
+    _deletePost((data) => {
+      alert(data.msg);
+
+      // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
+      router.replace("/posts");
+    });
+  };
+
   return (
     <>
       <div>번호 : {post.id}</div>
@@ -124,17 +141,30 @@ function PostInfo({
 function PostCommentWriteAndList({
   id,
   postComments,
-  deleteComment,
+  deleteComment: _deleteComment,
   writeComment,
 }: {
   id: number;
   postComments: PostCommentDto[] | null;
-  deleteComment: (commentId: number) => void;
+  deleteComment: (
+    commentId: number,
+    onSuccess: (data: { msg: string }) => void,
+  ) => void;
   writeComment: (
     content: string,
     onSuccess: (data: { msg: string }) => void,
   ) => void;
 }) {
+  // 댓글 삭제 버튼을 눌렀을 때 실행 (Page에 있던 것을 옮김)
+  const deleteComment = (commentId: number) => {
+    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+
+    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
+    _deleteComment(commentId, (data) => {
+      alert(data.msg);
+    });
+  };
+
   // 댓글 작성 폼을 제출했을 때 실행 (Page에 있던 것을 그대로 옮김)
   const handleCommentWriteFormSubmit = (
     e: React.SyntheticEvent<HTMLFormElement>,
@@ -220,47 +250,18 @@ function PostCommentWriteAndList({
 }
 
 export default function Page() {
-  // 코드로 페이지를 이동할 때 쓰는 도구
-  const router = useRouter();
-
   // 주소 /posts/3 의 "3"을 꺼낸다. 주소에서 꺼낸 값은 항상 문자열
   const { id: idStr } = useParams<{ id: string }>();
   const id = Number(idStr);
 
   // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
-  const { post, deletePost: _deletePost } = usePost(id);
-  const {
-    postComments,
-    deleteComment: _deleteComment,
-    writeComment,
-  } = usePostComments(id);
+  const { post, deletePost } = usePost(id);
+  const { postComments, deleteComment, writeComment } = usePostComments(id);
 
   if (post == null) return <div>로딩중...</div>;
 
-  // 삭제 버튼을 눌렀을 때 실행: 확인 창 + 성공 후 이동은 화면(페이지)의 몫
-  const deletePost = () => {
-    // 취소를 누르면 confirm이 false → 여기서 끝냄
-    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
-
-    _deletePost((data) => {
-      alert(data.msg);
-
-      // 삭제된 글 페이지는 기록에서 지우고 글 목록으로 이동
-      router.replace("/posts");
-    });
-  };
-
-  // 댓글 삭제 버튼을 눌렀을 때 실행
-  const deleteComment = (commentId: number) => {
-    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
-
-    // 페이지 이동 없이 알림만. 목록 갱신은 훅이 state를 바꿔서 처리
-    _deleteComment(commentId, (data) => {
-      alert(data.msg);
-    });
-  };
-
   // Page는 이제 "데이터 준비 + 하위 컴포넌트 배치"만 한다
+  // 훅이 준 함수를 가공하지 않고 그대로 넘긴다
   return (
     <>
       <h1>글 상세페이지</h1>

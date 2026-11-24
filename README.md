@@ -1159,6 +1159,127 @@ PostCommentWriteAndList 폼 제출 → handleCommentWriteFormSubmit → 검사
 |---|---|
 | ![전](docs/images/9-2.png) | ![후](docs/images/10-1.png) |
 
+### 커밋 10-2: 확인창·알림 함수를 하위 컴포넌트 안으로 이동 (43강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+> 계획에서는 41·42강(훅 결과 객체 넘기기)을 먼저 하려 했습니다. 하지만 그러려면 확인창 함수가 `Page`에 남아 있으면 안 되므로, 43강 내용을 먼저 적용했습니다.
+
+10-1에서 확인창을 띄우는 `deletePost`, `deleteComment`는 `Page`에 있었습니다. 그런데 이 함수를 실제로 쓰는 버튼은 `PostInfo`, `PostCommentWriteAndList` 안에 있습니다. **함수를 쓰는 컴포넌트 안으로** 옮겼습니다.
+
+| 함수 | 10-1 위치 | 10-2 위치 |
+|---|---|---|
+| `deletePost` (확인창 + 알림 + 목록 이동) | `Page` | `PostInfo` |
+| `deleteComment` (확인창 + 알림) | `Page` | `PostCommentWriteAndList` |
+| `useRouter()` | `Page` | `PostInfo` (이동이 필요한 곳) |
+
+#### 코드 상세 설명
+
+**① `Page`: 훅이 준 것을 가공하지 않고 그대로 넘긴다**
+
+```tsx
+// 10-1: 이름을 바꿔 받고, 확인창이 붙은 함수를 새로 만들어 넘김
+const { post, deletePost: _deletePost } = usePost(id);
+const deletePost = () => { if (!confirm(...)) return; _deletePost(...); };
+<PostInfo post={post} deletePost={deletePost} />
+
+// 10-2: 받은 그대로 넘김
+const { post, deletePost } = usePost(id);
+const { postComments, deleteComment, writeComment } = usePostComments(id);
+<PostInfo post={post} deletePost={deletePost} />
+```
+
+- 태그 모양(`deletePost={deletePost}`)은 같지만 **넘어가는 함수가 다릅니다.**
+  - 10-1: `Page`가 만든 "확인창 + 삭제" 함수 (인자 없음)
+  - 10-2: 훅의 "DELETE 요청만 하는" 함수 (성공 콜백을 인자로 받음)
+- `Page`에서 `useRouter`, `_deletePost`, `_deleteComment`, 확인창 코드가 모두 빠졌습니다. 이제 `Page`가 하는 일은 **주소 읽기 → 훅 호출 → 로딩 처리 → 배치**뿐입니다.
+
+**② `PostInfo`: 훅 함수를 받아서, 확인창을 붙인 함수를 직접 만든다**
+
+```tsx
+function PostInfo({
+  post,
+  deletePost: _deletePost,   // ① 받은 훅 함수를 _deletePost라는 이름으로 꺼냄
+}: {
+  post: PostDto;
+  deletePost: (onSuccess: (data: { msg: string }) => void) => void;   // ② 타입이 바뀜
+}) {
+  const router = useRouter();   // ③ 이동 도구를 여기서 가져옴
+
+  const deletePost = () => {    // ④ 버튼용 함수를 여기서 만듦
+    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+
+    _deletePost((data) => {
+      alert(data.msg);
+      router.replace("/posts");
+    });
+  };
+  ...
+  <button onClick={deletePost}>삭제</button>   // ⑤ 버튼은 ④를 실행
+```
+
+- ① **props 구조 분해에서도 이름을 바꿀 수 있습니다.** `{ deletePost: _deletePost }`는 "props의 `deletePost`를 `_deletePost` 변수로 꺼내라"는 뜻입니다. 1-1에서 본 `{ id: idStr }`와 같은 문법입니다. 아래에서 버튼용 `deletePost`를 만들기 위해 이름을 비워 둡니다.
+- ② props 타입이 `() => void`에서 `(onSuccess: (data: { msg: string }) => void) => void`로 바뀌었습니다. 이제 훅 함수를 그대로 받기 때문에, **훅 함수의 모양**(성공 콜백 하나를 받는 함수)을 그대로 적어야 합니다.
+- ③ `useRouter()`도 훅입니다. 훅은 컴포넌트 함수의 **맨 위**에서 호출해야 합니다. `PostInfo`에는 조기 `return`이 없으므로 맨 위에 두면 됩니다. 이동이 필요 없어진 `Page`에서는 뺐습니다.
+- ④ 함수 본문은 10-1의 `Page`에 있던 것과 **완전히 같습니다.** 위치만 바뀌었습니다. 안에서 쓰는 `post`, `_deletePost`, `router`는 모두 `PostInfo` 안에 있는 변수입니다. 그래서 따로 넘겨받을 필요가 없습니다.
+- ⑤ 버튼 JSX는 그대로입니다. 다만 이제 `onClick`의 `deletePost`가 props가 아니라 **이 컴포넌트가 만든 함수**를 가리킵니다.
+
+**③ `PostCommentWriteAndList`: 같은 방식으로 `deleteComment`**
+
+```tsx
+function PostCommentWriteAndList({
+  id,
+  postComments,
+  deleteComment: _deleteComment,
+  writeComment,
+}: {
+  ...
+  deleteComment: (
+    commentId: number,
+    onSuccess: (data: { msg: string }) => void,
+  ) => void;
+  ...
+}) {
+  const deleteComment = (commentId: number) => {
+    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+
+    _deleteComment(commentId, (data) => {
+      alert(data.msg);
+    });
+  };
+  ...
+  <button onClick={() => deleteComment(comment.id)}>삭제</button>
+```
+
+- props로 받은 훅 함수는 `_deleteComment`, 버튼용으로 만든 함수는 `deleteComment`입니다.
+- 목록 JSX의 `onClick={() => deleteComment(comment.id)}`는 손대지 않았습니다. 같은 이름의 함수가 이제 이 컴포넌트 안에서 만들어지기 때문입니다.
+- `writeComment`는 원래부터 훅 함수를 그대로 받아 `handleCommentWriteFormSubmit` 안에서 썼습니다. 그래서 바뀐 것이 없습니다. 이번 커밋으로 **세 함수 모두 "훅 함수를 받아서, 컴포넌트가 화면 반응을 붙여 쓴다"는 같은 방식**이 되었습니다.
+
+**④ 버튼을 누르면 (10-1과 비교)**
+
+```
+[10-1] PostInfo 버튼 → (props로 받은) Page의 deletePost → confirm → usePost의 deletePost
+[10-2] PostInfo 버튼 → (PostInfo 안의) deletePost → confirm → (props로 받은) usePost의 deletePost
+```
+
+- 동작 순서와 결과(확인창 → DELETE → 알림 → 이동)는 같습니다. **확인창 코드가 어느 함수에 있느냐**만 다릅니다.
+
+**왜 옮기나?**
+
+- 삭제 버튼의 확인창 문구를 고치고 싶을 때 **버튼이 있는 컴포넌트만 열면** 됩니다. 버튼과 그 버튼의 반응이 한곳에 모입니다.
+- `Page`가 하위 컴포넌트를 위해 함수를 가공하지 않게 되었습니다. 덕분에 다음 커밋에서 훅 결과를 **통째로** 넘길 수 있습니다.
+
+**아쉬운 점** (10-3에서 개선)
+
+- 훅 함수의 타입(`(commentId: number, onSuccess: ...) => void` 등)을 하위 컴포넌트 props에 **또 한 번** 손으로 적었습니다. 이제 `deleteComment`, `writeComment` 두 개가 훅과 컴포넌트에 중복되어 있습니다. 훅 함수의 모양이 바뀌면 두 곳을 다 고쳐야 합니다.
+- `Page`는 훅 결과를 꺼냈다가 다시 하나씩 넘기는 일을 여전히 하고 있습니다.
+
+**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/10-1.png) | ![후](docs/images/10-2.png) |
+
 ---
 
 ## 마무리
