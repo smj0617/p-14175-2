@@ -297,8 +297,9 @@ function PostCommentListItem({
   };
 
   // key는 여기가 아니라 이 컴포넌트를 부르는 쪽(map 안)에 붙인다
+  // items-start: 내용이 여러 줄이거나 수정 폼이 높아도 버튼이 위쪽(첫 줄)에 맞춰진다
   return (
-    <li className="flex gap-2 items-center">
+    <li className="flex gap-2 items-start">
       <span>{comment.id} :</span>
 
       {/* 수정 중이 아닐 때: 댓글 내용 */}
@@ -309,7 +310,7 @@ function PostCommentListItem({
       {/* 수정 중일 때: 기존 내용이 채워진 수정 폼 */}
       {modifyMode && (
         <form
-          className="flex gap-2 items-center"
+          className="flex gap-2 items-start"
           onSubmit={handleModifyFormSubmit}
         >
           <textarea
@@ -321,8 +322,9 @@ function PostCommentListItem({
             defaultValue={comment.content}
             autoFocus
           />
+          {/* 토글 버튼("수정"/"수정취소")과 헷갈리지 않게 "저장" */}
           <button className="p-2 rounded border cursor-pointer" type="submit">
-            수정
+            저장
           </button>
         </form>
       )}
