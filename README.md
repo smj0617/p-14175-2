@@ -39,6 +39,7 @@ pnpm dev
 | 댓글 다건조회 | `GET` | `/api/v1/posts/{postId}/comments` |
 | 댓글 삭제 | `DELETE` | `/api/v1/posts/{postId}/comments/{id}` |
 | 댓글 작성 | `POST` | `/api/v1/posts/{postId}/comments` |
+| 댓글 수정 | `PUT` | `/api/v1/posts/{postId}/comments/{id}` |
 
 ## 진행 방식
 
@@ -1725,6 +1726,88 @@ function PostInfo({
 **결과 화면**: 구조만 바꿔서 화면이 10-4와 같으므로, 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 10-4 줄 번호, 오른쪽 숫자는 10-5 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
 
 ![10-5 변경점](docs/images/10-5-diff.png)
+
+---
+
+## 11. 댓글 수정
+
+백엔드 API: `PUT /api/v1/posts/{postId}/comments/{id}` (요청 본문 `{ "content": "..." }`)
+
+### 커밋 11-1: 수정/수정취소 토글, `modifyMode`에 따라 내용 ↔ 수정 폼 전환 (49강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+댓글마다 "수정" 버튼을 달았습니다. 누르면 댓글 내용 자리에 **기존 내용이 채워진 수정 폼**이 나오고 버튼 글자가 "수정취소"로 바뀝니다. 다시 누르면 원래대로 돌아옵니다. 실제 저장(PUT)은 11-2에서 합니다.
+
+#### 코드 상세 설명
+
+> 줄 번호는 **11-1 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다. 바뀐 곳은 모두 `PostCommentListItem`(212~283번 줄) 안입니다.
+
+**① 댓글마다 수정 중인지 기억하는 state (219~227번 줄)**
+
+```tsx
+220    const [modifyMode, setModifyMode] = useState(false);
+225    const toggleModifyMode = () => {
+226      setModifyMode(!modifyMode);
+227    };
+```
+
+- **[220]** `useState(false)`: "지금 수정 중인가?"를 기억합니다. 처음엔 `false`(수정 중 아님)입니다.
+- **[220]** 이 state가 `PostCommentListItem` 안에 있다는 것이 핵심입니다. `map`이 댓글마다 `PostCommentListItem`을 따로 그리므로, **댓글마다 자기 `modifyMode`를 따로** 가집니다. 34번 댓글을 수정 모드로 바꿔도 35번 댓글은 그대로입니다. 10-5에서 댓글 한 줄을 컴포넌트로 뺀 이유가 이것입니다.
+- **[225~227]** `toggleModifyMode`: 누를 때마다 `true` ↔ `false`를 뒤집습니다. `!modifyMode`는 "지금 값의 반대"입니다.
+- **[226]** `setModifyMode`로 값을 바꾸면 React가 **이 댓글 한 줄만** 다시 그립니다.
+
+**② `modifyMode`에 따라 내용 또는 수정 폼을 그린다 (244~267번 줄)**
+
+```tsx
+245      {!modifyMode && (
+246        <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+247      )}
+250      {modifyMode && (
+251        <form
+252          className="flex gap-2 items-center"
+253          onSubmit={(e) => e.preventDefault()}
+254        >
+255          <textarea
+257            name="content"
+259            maxLength={100}
+261            defaultValue={comment.content}
+262          />
+263          <button className="p-2 rounded border cursor-pointer" type="submit">
+264            수정
+265          </button>
+266        </form>
+267      )}
+```
+
+- **[245]** `!modifyMode && (...)`: 수정 중이 **아닐 때만** 댓글 내용을 그립니다. 7-1, 9장에서 쓴 `조건 && <JSX>`와 같은 방식입니다.
+- **[250]** `modifyMode && (...)`: 수정 중**일 때만** 폼을 그립니다. 245번 줄과 250번 줄은 조건이 정반대라 **둘 중 하나만** 화면에 나옵니다.
+- **[261]** `defaultValue={comment.content}`: 입력칸을 기존 댓글 내용으로 채워 둡니다. 6-1 글 수정 폼에서 쓴 것과 같습니다. `value`가 아니라 `defaultValue`라서 처음 한 번만 채우고, 그 뒤로는 사용자가 자유롭게 고칠 수 있습니다.
+- **[257, 259]** `name="content"`, `maxLength={100}`: 댓글 작성 폼과 같은 규칙입니다. 11-2에서 `namedItem("content")`로 이 입력칸을 찾습니다.
+- **[253]** `onSubmit={(e) => e.preventDefault()}`: 아직 저장 기능이 없으므로, 263번 줄 버튼을 눌러도 **브라우저 기본 동작(새로고침하며 전송)만 막고** 아무것도 하지 않습니다. 이걸 빼면 누를 때마다 페이지가 새로고침됩니다.
+
+**③ 수정/수정취소 토글 버튼 (269~274번 줄)**
+
+```tsx
+269      <button
+270        className="p-2 rounded border cursor-pointer"
+271        onClick={toggleModifyMode}
+272      >
+273        {modifyMode ? "수정취소" : "수정"}
+274      </button>
+```
+
+- **[271]** 누르면 225번 줄 `toggleModifyMode`가 실행되어 모드를 뒤집습니다.
+- **[273]** `조건 ? A : B`(삼항 연산자): `modifyMode`가 `true`면 "수정취소", `false`면 "수정"을 씁니다. `&&`는 "그리거나 안 그리거나"이고, `? :`는 "둘 중 무엇을 그릴지"입니다.
+- **[273]** "수정취소"를 누르면 폼이 사라지고 원래 내용이 다시 보입니다. 폼에 입력하던 내용은 버려집니다(폼 자체가 화면에서 없어지므로).
+
+**결과 화면** (35번 글)
+
+| 전 (10-5) | 후: 댓글마다 "수정" 버튼 | 34번 댓글의 "수정"을 누름 |
+|---|---|---|
+| ![전](docs/images/10-4.png) | ![후](docs/images/11-1.png) | ![수정 모드](docs/images/11-1-modify.png) |
+
+- 세 번째 화면: 34번 댓글만 수정 폼(기존 내용이 채워짐)으로 바뀌고 버튼이 "수정취소"가 되었습니다. 35번 댓글은 그대로입니다(댓글마다 state를 따로 가짐).
 
 ---
 

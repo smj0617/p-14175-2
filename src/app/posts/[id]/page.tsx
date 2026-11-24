@@ -216,7 +216,15 @@ function PostCommentListItem({
   comment: PostCommentDto;
   postCommentsState: ReturnType<typeof usePostComments>;
 }) {
+  // 이 댓글 한 줄이 지금 수정 중인지 기억하는 state (댓글마다 따로 가진다)
+  const [modifyMode, setModifyMode] = useState(false);
+
   const { deleteComment: _deleteComment } = postCommentsState;
+
+  // 수정 ↔ 수정취소 버튼: 누를 때마다 true/false를 뒤집는다
+  const toggleModifyMode = () => {
+    setModifyMode(!modifyMode);
+  };
 
   // 댓글 삭제 버튼을 눌렀을 때 실행 (PostCommentList에 있던 것을 옮김)
   const deleteComment = (commentId: number) => {
@@ -232,7 +240,38 @@ function PostCommentListItem({
   return (
     <li className="flex gap-2 items-center">
       <span>{comment.id} :</span>
-      <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+
+      {/* 수정 중이 아닐 때: 댓글 내용 */}
+      {!modifyMode && (
+        <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+      )}
+
+      {/* 수정 중일 때: 기존 내용이 채워진 수정 폼 (저장은 다음 커밋에서) */}
+      {modifyMode && (
+        <form
+          className="flex gap-2 items-center"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <textarea
+            className="border p-2 rounded"
+            name="content"
+            placeholder="댓글 내용"
+            maxLength={100}
+            rows={3}
+            defaultValue={comment.content}
+          />
+          <button className="p-2 rounded border cursor-pointer" type="submit">
+            수정
+          </button>
+        </form>
+      )}
+
+      <button
+        className="p-2 rounded border cursor-pointer"
+        onClick={toggleModifyMode}
+      >
+        {modifyMode ? "수정취소" : "수정"}
+      </button>
       <button
         className="p-2 rounded border cursor-pointer"
         onClick={() => deleteComment(comment.id)}
