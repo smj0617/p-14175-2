@@ -1461,6 +1461,105 @@ function PostInfo({
 |---|---|
 | ![전](docs/images/10-1.png) | ![후](docs/images/10-2.png) |
 
+### 커밋 10-3: 훅 결과 객체를 통째로 넘기고 `ReturnType`으로 타입 지정 (41, 42강)
+
+**변경 파일**: `src/app/posts/[id]/page.tsx`
+
+10-2까지 `Page`는 훅 결과를 구조 분해해서 하나씩 꺼낸 다음, 하위 컴포넌트에 다시 하나씩 넘겼습니다. 하위 컴포넌트는 받은 함수의 타입을 훅과 똑같이 한 번 더 적어야 했습니다. 이번 커밋에서는 **훅 결과 객체를 통째로** 넘기고, 타입은 **`ReturnType<typeof 훅>`** 으로 훅에서 가져옵니다.
+
+| | 10-2 | 10-3 |
+|---|---|---|
+| `Page`가 넘기는 것 | `post`, `deletePost`, `postComments`, `deleteComment`, `writeComment` (5개) | `postState`, `postCommentsState` (2개) + `id` |
+| props 타입 | 함수 모양을 손으로 다시 적음 | `ReturnType<typeof usePost>` 한 줄 |
+| 글 로딩 처리 (`post == null`) | `Page` | `PostInfo` |
+
+#### 코드 상세 설명
+
+> 줄 번호는 **10-3 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다.
+
+**① `Page`: 훅 결과를 객체 그대로 받아서 그대로 넘긴다 (251~273번 줄)**
+
+```tsx
+257  const postState = usePost(id);
+258  const postCommentsState = usePostComments(id);
+266      <PostInfo postState={postState} />
+270      <PostCommentWriteAndList id={id} postCommentsState={postCommentsState} />
+```
+
+- **[257]** `usePost`는 33번 줄 `return { post, deletePost };`로 객체 하나를 돌려줍니다. 10-2에서는 `const { post, deletePost } = usePost(id);`로 꺼냈지만, 이제 꺼내지 않고 **객체째** `postState`에 담습니다.
+- **[258]** `usePostComments`의 93번 줄 `return { postComments, deleteComment, writeComment };` 객체를 통째로 `postCommentsState`에 담습니다.
+- **[266]** `PostInfo`에 객체 하나만 넘깁니다. 10-2의 `<PostInfo post={post} deletePost={deletePost} />`보다 짧아졌습니다.
+- **[270]** 10-2에서 4개(`id`, `postComments`, `deleteComment`, `writeComment`)를 넘기던 것이 2개가 되었습니다. `id`는 훅 결과에 없어서 아직 따로 넘깁니다(10-4에서 정리).
+- 10-2의 `if (post == null) return <div>로딩중...</div>;`가 `Page`에서 빠졌습니다. `Page`가 `post`를 꺼내지 않으니 검사할 수도 없고, 글을 그리는 `PostInfo`(107번 줄)가 맡습니다.
+- 훅 결과에 값이 추가되어도(예: 11장의 `modifyComment`) `Page`는 고칠 필요가 없습니다. 객체째 넘기기 때문입니다.
+
+**② `ReturnType<typeof usePost>`: 타입을 훅에서 가져온다 (99번 줄, 148번 줄)**
+
+```tsx
+ 99  function PostInfo({ postState }: { postState: ReturnType<typeof usePost> }) {
+148    postCommentsState: ReturnType<typeof usePostComments>;
+```
+
+- **[99]** 읽는 순서
+  - `typeof usePost`: `usePost` **함수의 타입**입니다. "숫자를 받아서 `{ post, deletePost }`를 돌려주는 함수"라는 정보가 들어 있습니다.
+  - `ReturnType<함수타입>`: 그 함수가 **돌려주는 값의 타입**만 꺼냅니다. 결과는 `{ post: PostDto | null; deletePost: (onSuccess: ...) => void }`입니다.
+- **[99]** 10-2의 `deletePost: (onSuccess: (data: { msg: string }) => void) => void;`처럼 손으로 적던 타입이 사라졌습니다. 훅 23번 줄의 함수 모양이 바뀌면 이 타입도 **자동으로** 따라 바뀝니다.
+- **[148]** `usePostComments`도 같습니다. 10-2의 `deleteComment`(4줄), `writeComment`(4줄) 타입이 이 한 줄로 바뀌었습니다.
+- 강의(42강)에서 비교한 세 방식
+
+| 방식 | 예 | 문제 |
+|---|---|---|
+| 타입 없음 | `{ postState }: any` | 오타나 없는 값을 써도 잡아 주지 않음 |
+| 타입 직접 정의 | `type PostState = { post: ...; deletePost: ... }` | 훅이 바뀌면 같이 고쳐야 함 (10-2의 문제) |
+| `ReturnType` | `ReturnType<typeof usePost>` | 훅에서 자동으로 가져옴 |
+
+**③ `PostInfo`: 받은 객체에서 꺼내고, 로딩 처리도 맡는다 (99~139번 줄)**
+
+```tsx
+101    const router = useRouter();
+104    const { post, deletePost: _deletePost } = postState;
+107    if (post == null) return <div>로딩중...</div>;
+111    const deletePost = () => {
+```
+
+- **[104]** 10-2에서 props 자리(`deletePost: _deletePost,`)에서 하던 구조 분해를 이제 **함수 본문에서** 합니다. 객체 하나를 받았으니 쓰기 전에 꺼내야 합니다. `_deletePost`로 이름을 바꾸는 이유는 같습니다(111번 줄에 버튼용 `deletePost`가 있음).
+- **[107]** `post`의 타입이 이제 `PostDto | null`입니다(`ReturnType`에 `null`이 포함됨). 그래서 `Page`에 있던 로딩 처리를 여기로 옮겼습니다. 이 줄 아래에서는 `post`가 `null`이 아니므로 113번 줄 `post.id`를 쓸 수 있습니다.
+- **[101]** `useRouter()`는 107번 줄의 조기 `return`보다 **위에** 있어야 합니다. 훅은 매번 같은 순서로 호출되어야 하는데, 아래에 두면 로딩 중일 때는 호출되지 않기 때문입니다(7-1 훅의 규칙).
+- **[111~121]** 버튼용 `deletePost`는 10-2와 같습니다.
+
+**④ `PostCommentWriteAndList`: 받은 객체에서 꺼낸다 (143~249번 줄)**
+
+```tsx
+143  function PostCommentWriteAndList({
+144    id,
+145    postCommentsState,
+146  }: {
+147    id: number;
+148    postCommentsState: ReturnType<typeof usePostComments>;
+149  }) {
+151    const {
+152      postComments,
+153      deleteComment: _deleteComment,
+154      writeComment,
+155    } = postCommentsState;
+```
+
+- **[151~155]** 10-2에서 props 자리에서 하던 구조 분해를 함수 본문으로 옮겼습니다. 꺼낸 이름(`postComments`, `_deleteComment`, `writeComment`)이 10-2와 같으므로 **아래 코드는 한 줄도 바뀌지 않았습니다**.
+- **[153]** `_deleteComment`로 이름을 바꾸는 이유는 158번 줄 버튼용 `deleteComment` 때문입니다(10-2와 같음).
+
+**정리: 10-2에서 손으로 적던 타입이 어떻게 됐나**
+
+| 10-2 (손으로 적음) | 10-3 |
+|---|---|
+| `post: PostDto;` + `deletePost: (onSuccess: ...) => void;` | 99번 줄 `ReturnType<typeof usePost>` |
+| `postComments: PostCommentDto[] \| null;` + `deleteComment: (...)` 4줄 + `writeComment: (...)` 4줄 | 148번 줄 `ReturnType<typeof usePostComments>` |
+
+**결과 화면**: 구조만 바꿨으므로 화면이 같습니다. (글을 받아 오기 전 잠깐 보이는 "로딩중..."은 이제 페이지 전체가 아니라 글 정보 자리에만 나옵니다.)
+
+| 전 | 후 |
+|---|---|
+| ![전](docs/images/10-2.png) | ![후](docs/images/10-3.png) |
+
 ---
 
 ## 마무리

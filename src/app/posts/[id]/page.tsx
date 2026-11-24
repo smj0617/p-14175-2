@@ -95,15 +95,16 @@ function usePostComments(postId: number) {
 
 // 컴포넌트 1: 글 정보(번호, 제목, 내용) + 삭제/수정 버튼
 // 부모(Page)가 넘겨준 값(props)만 가지고 화면을 그린다
-function PostInfo({
-  post,
-  deletePost: _deletePost,
-}: {
-  post: PostDto;
-  deletePost: (onSuccess: (data: { msg: string }) => void) => void;
-}) {
+// postState = usePost가 돌려준 객체 통째로. 타입은 usePost의 반환 타입을 그대로 쓴다
+function PostInfo({ postState }: { postState: ReturnType<typeof usePost> }) {
   // 페이지 이동 도구는 이제 이동이 필요한 이 컴포넌트가 직접 가져온다
   const router = useRouter();
+
+  // 받은 객체에서 필요한 것을 꺼낸다
+  const { post, deletePost: _deletePost } = postState;
+
+  // 글 로딩 처리도 글을 그리는 이 컴포넌트가 맡는다 (훅 호출보다 아래에 둔다)
+  if (post == null) return <div>로딩중...</div>;
 
   // 삭제 버튼을 눌렀을 때 실행 (Page에 있던 것을 옮김)
   // 확인 창 + 성공 후 이동은 삭제 버튼을 그리는 이 컴포넌트의 몫
@@ -138,23 +139,21 @@ function PostInfo({
 }
 
 // 컴포넌트 2: 댓글 작성 폼 + 댓글 목록
+// postCommentsState = usePostComments가 돌려준 객체 통째로
 function PostCommentWriteAndList({
   id,
-  postComments,
-  deleteComment: _deleteComment,
-  writeComment,
+  postCommentsState,
 }: {
   id: number;
-  postComments: PostCommentDto[] | null;
-  deleteComment: (
-    commentId: number,
-    onSuccess: (data: { msg: string }) => void,
-  ) => void;
-  writeComment: (
-    content: string,
-    onSuccess: (data: { msg: string }) => void,
-  ) => void;
+  postCommentsState: ReturnType<typeof usePostComments>;
 }) {
+  // 받은 객체에서 필요한 것을 꺼낸다
+  const {
+    postComments,
+    deleteComment: _deleteComment,
+    writeComment,
+  } = postCommentsState;
+
   // 댓글 삭제 버튼을 눌렀을 때 실행 (Page에 있던 것을 옮김)
   const deleteComment = (commentId: number) => {
     if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
@@ -254,28 +253,21 @@ export default function Page() {
   const { id: idStr } = useParams<{ id: string }>();
   const id = Number(idStr);
 
-  // 커스텀 훅도 훅이므로 조기 return보다 위에서 호출한다
-  const { post, deletePost } = usePost(id);
-  const { postComments, deleteComment, writeComment } = usePostComments(id);
-
-  if (post == null) return <div>로딩중...</div>;
+  // 훅 결과를 구조 분해하지 않고 객체 통째로 받아 둔다
+  const postState = usePost(id);
+  const postCommentsState = usePostComments(id);
 
   // Page는 이제 "데이터 준비 + 하위 컴포넌트 배치"만 한다
-  // 훅이 준 함수를 가공하지 않고 그대로 넘긴다
+  // 훅 결과 객체를 그대로 넘긴다 (로딩 처리는 PostInfo가 한다)
   return (
     <>
       <h1>글 상세페이지</h1>
 
-      <PostInfo post={post} deletePost={deletePost} />
+      <PostInfo postState={postState} />
 
       <hr className="my-2" />
 
-      <PostCommentWriteAndList
-        id={id}
-        postComments={postComments}
-        deleteComment={deleteComment}
-        writeComment={writeComment}
-      />
+      <PostCommentWriteAndList id={id} postCommentsState={postCommentsState} />
     </>
   );
 }
