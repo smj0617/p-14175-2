@@ -1255,11 +1255,9 @@ function PostInfo({
 - 훅이 돌려준 값을 `Page`에서 하나하나 꺼냈다가 다시 하나하나 넘깁니다. 넘길 값이 늘면 `Page`와 하위 컴포넌트를 둘 다 고쳐야 합니다.
 - `writeComment`의 타입 `(content: string, onSuccess: ...) => void`를 훅과 컴포넌트 두 곳에 똑같이 적었습니다.
 
-**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+**결과 화면**: 구조만 바꿔서 화면이 9-2와 같으므로(`docs/images/10-1.png`), 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 9-2 줄 번호, 오른쪽 숫자는 10-1 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
 
-| 전 | 후 |
-|---|---|
-| ![전](docs/images/9-2.png) | ![후](docs/images/10-1.png) |
+![10-1 변경점](docs/images/10-1-diff.png)
 
 ### 커밋 10-2: 확인창·알림 함수를 하위 컴포넌트 안으로 이동 (43강)
 
@@ -1455,11 +1453,9 @@ function PostInfo({
 - 훅 함수의 타입(`(commentId: number, onSuccess: ...) => void` 등)을 하위 컴포넌트 props에 **또 한 번** 손으로 적었습니다. 이제 `deleteComment`, `writeComment` 두 개가 훅과 컴포넌트에 중복되어 있습니다. 훅 함수의 모양이 바뀌면 두 곳을 다 고쳐야 합니다.
 - `Page`는 훅 결과를 꺼냈다가 다시 하나씩 넘기는 일을 여전히 하고 있습니다.
 
-**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+**결과 화면**: 구조만 바꿔서 화면이 10-1와 같으므로(`docs/images/10-2.png`), 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 10-1 줄 번호, 오른쪽 숫자는 10-2 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
 
-| 전 | 후 |
-|---|---|
-| ![전](docs/images/10-1.png) | ![후](docs/images/10-2.png) |
+![10-2 변경점](docs/images/10-2-diff.png)
 
 ### 커밋 10-3: 훅 결과 객체를 통째로 넘기고 `ReturnType`으로 타입 지정 (41, 42강)
 
@@ -1554,11 +1550,9 @@ function PostInfo({
 | `post: PostDto;` + `deletePost: (onSuccess: ...) => void;` | 99번 줄 `ReturnType<typeof usePost>` |
 | `postComments: PostCommentDto[] \| null;` + `deleteComment: (...)` 4줄 + `writeComment: (...)` 4줄 | 148번 줄 `ReturnType<typeof usePostComments>` |
 
-**결과 화면**: 구조만 바꿨으므로 화면이 같습니다. (글을 받아 오기 전 잠깐 보이는 "로딩중..."은 이제 페이지 전체가 아니라 글 정보 자리에만 나옵니다.)
+**결과 화면**: 구조만 바꿔서 화면이 10-2와 같으므로(`docs/images/10-3.png`), 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 10-2 줄 번호, 오른쪽 숫자는 10-3 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
 
-| 전 | 후 |
-|---|---|
-| ![전](docs/images/10-2.png) | ![후](docs/images/10-3.png) |
+![10-3 변경점](docs/images/10-3-diff.png)
 
 ### 커밋 10-4: `PostCommentWrite`, `PostCommentList`로 분리, 훅이 `postId` 제공 (44, 46, 47강)
 
@@ -1664,11 +1658,9 @@ function PostInfo({
 - **[286]** `id`는 훅을 부를 때 한 번만 넘깁니다. 훅이 기억해 두었다가 95번 줄에서 `postId`로 돌려줍니다.
 - **[298]** 10-3의 `<PostCommentWriteAndList id={id} postCommentsState={postCommentsState} />`에서 `id={id}`가 빠졌습니다.
 
-**결과 화면**: 구조만 바꿨으므로 화면이 같습니다.
+**결과 화면**: 구조만 바꿔서 화면이 10-3와 같으므로(`docs/images/10-4.png`), 대신 **커밋 변경점**을 캡처했습니다. 왼쪽 숫자는 10-3 줄 번호, 오른쪽 숫자는 10-4 줄 번호입니다. 빨간 줄은 지운 줄, 초록 줄은 추가한 줄입니다.
 
-| 전 | 후 |
-|---|---|
-| ![전](docs/images/10-3.png) | ![후](docs/images/10-4.png) |
+![10-4 변경점](docs/images/10-4-diff.png)
 
 ### 커밋 10-5: `PostCommentListItem` 분리 (48강)
 
