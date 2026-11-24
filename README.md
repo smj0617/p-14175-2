@@ -1006,132 +1006,234 @@ function PostInfo({
 
 #### 코드 상세 설명
 
-실행 순서대로 `Page` → `PostInfo` → `PostCommentWriteAndList` → 버튼을 눌렀을 때의 흐름 순으로 설명합니다. 훅 `usePost`, `usePostComments`는 이번 커밋에서 바뀌지 않았습니다.
+> 줄 번호는 **10-1 커밋(`a90115e`) 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다.
+> 지금 파일은 다음 커밋들 때문에 줄 번호가 다릅니다. 이 시점 파일은 `git show a90115e:"src/app/posts/[id]/page.tsx"`로 볼 수 있습니다.
 
-**① `Page`: 데이터를 준비하고 화면 조각을 배치**
+**파일 지도**
 
-`/posts/35`로 접속하면 Next.js가 이 파일의 `export default` 함수 `Page`를 실행합니다. 나머지 컴포넌트는 `Page`가 가져다 쓰는 부품입니다.
-
-```tsx
-const { id: idStr } = useParams<{ id: string }>();
-const id = Number(idStr);
-```
-
-- 폴더 이름이 `[id]`이므로 `/posts/35`의 `35`가 `id`라는 이름으로 들어옵니다. 주소에서 꺼낸 값은 항상 **문자열**입니다.
-- `{ id: idStr }`: 구조 분해하면서 이름을 바꿉니다. `id`라는 이름은 숫자용으로 쓰기 위해서입니다.
-
-```tsx
-const { post, deletePost: _deletePost } = usePost(id);
-const { postComments, deleteComment: _deleteComment, writeComment } = usePostComments(id);
-```
-
-- `post`는 처음엔 `null`입니다. 응답이 와서 `setPost`가 호출되면 React가 `Page`를 **처음부터 다시 실행**합니다.
-- `_deletePost`, `_deleteComment`처럼 이름을 바꾼 이유: 아래에서 확인창이 붙은 같은 이름의 함수를 새로 만들기 때문입니다.
-- 훅은 조기 `return`보다 **위에서** 호출합니다. React는 매번 같은 순서로 훅이 호출된다고 가정하고 state를 기억하기 때문입니다(7-1).
-
-```tsx
-if (post == null) return <div>로딩중...</div>;
-```
-
-- 응답 전에는 로딩 표시만 그리고 끝냅니다. 이 줄 아래에서는 TypeScript도 `post`가 `null`이 아님을 알아서 `post.id`를 쓸 수 있습니다.
-
-```tsx
-const deletePost = () => {
-  if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
-  _deletePost((data) => {
-    alert(data.msg);
-    router.replace("/posts");
-  });
-};
-```
-
-- 함수를 **만들어 두기만** 합니다. 실행은 버튼을 누를 때입니다.
-- `_deletePost`(훅)는 DELETE 요청이라는 **데이터** 일을 하고, `deletePost`(여기)는 확인창·알림·이동이라는 **화면 반응** 일을 합니다.
-- `deleteComment`도 같은 구조입니다. 목록에서 댓글이 빠지는 것은 훅이 `filter`로 state를 바꿔서 처리합니다(8-1).
-
-```tsx
-<PostInfo post={post} deletePost={deletePost} />
-```
-
-- 태그처럼 보이지만 실제로는 `PostInfo({ post: post, deletePost: deletePost })`처럼 **함수를 호출**하는 것입니다. 태그에 붙인 값들이 객체 하나(props)로 묶여 넘어갑니다.
-- `post={post}`에서 왼쪽은 **받는 쪽이 쓸 이름**, 오른쪽 `{post}`는 **`Page`의 변수 값**입니다.
-- 함수도 값처럼 넘깁니다. `deletePost()`처럼 괄호를 붙이면 그 자리에서 실행되어 버립니다.
-
-**② `PostInfo`: 글 정보와 버튼**
-
-```tsx
-function PostInfo({ post, deletePost }: { post: PostDto; deletePost: () => void }) {
-```
-
-- 앞의 `{ post, deletePost }`는 props 구조 분해, 콜론 뒤는 props 객체의 **타입**입니다.
-- `() => void`: 인자 없이 호출하고 아무것도 돌려주지 않는 함수.
-- 타입 덕분에 `Page`에서 `deletePost`를 빠뜨리고 넘기면 TypeScript가 바로 오류를 냅니다.
-- `post`가 `PostDto | null`이 아닌 이유: `Page`가 `null`을 걸러낸 뒤에만 이 컴포넌트를 그리기 때문입니다.
-- `onClick={deletePost}`: 클릭되면 `Page`가 넘겨준 함수를 실행합니다. `PostInfo`는 삭제가 어떻게 처리되는지 모르고 **버튼이 눌렸다는 사실만 전달**합니다.
-- `<> ... </>`(Fragment): 컴포넌트는 덩어리 하나만 `return`할 수 있어서, 화면에 태그를 남기지 않고 여러 요소를 묶습니다.
-
-**③ `PostCommentWriteAndList`: 댓글 작성 폼 + 목록**
-
-| prop | 타입 | 어디서 왔나 |
+| 줄 | 무엇 | 10-1에서 |
 |---|---|---|
-| `id` | `number` | `Page`가 주소에서 꺼낸 글 번호 |
-| `postComments` | `PostCommentDto[] \| null` | `usePostComments`의 state (아직 응답 전이면 `null`) |
-| `deleteComment` | `(commentId: number) => void` | `Page`가 만든 "확인창 + 삭제" 함수 |
-| `writeComment` | `(content, onSuccess) => void` | 훅의 함수를 **그대로** 넘김 |
+| 1~7 | `"use client"`, import | 변화 없음 |
+| 10~34 | 훅 `usePost` | 변화 없음 |
+| 37~94 | 훅 `usePostComments` | 변화 없음 |
+| 96~121 | 컴포넌트 `PostInfo` | **새로 생김** |
+| 123~220 | 컴포넌트 `PostCommentWriteAndList` | **새로 생김** |
+| 222~280 | `Page` | **return이 짧아짐** |
 
-- `postComments`에만 `| null`이 붙는 이유: `Page`는 글만 기다리고 댓글은 기다리지 않으므로, 댓글이 오기 전에 이 컴포넌트가 그려질 수 있습니다.
-
-`handleCommentWriteFormSubmit` (`Page`에서 옮겨 옴) 동작 순서
-
-1. `e.preventDefault()`: 폼 기본 동작(새로고침하며 전송)을 막습니다.
-2. `form.elements.namedItem("content")`: `name="content"`인 textarea를 찾습니다. **JSX의 `name`과 이름이 맞아야** 합니다.
-3. `trim()` → 빈 값 검사 → 2자 미만 검사. 걸리면 `alert` + `focus()` + `return`으로 멈춥니다.
-4. 통과하면 props로 받은 `writeComment(내용, 콜백)`을 호출합니다. 실제로는 훅 안의 함수가 POST를 보내고, 성공하면 state를 바꾼 뒤 콜백(알림 + 입력칸 비우기)을 실행합니다.
-
-- 이 함수를 옮긴 이유: 이 컴포넌트의 폼에서만 쓰기 때문입니다. 쓰는 곳 가까이 두면 폼을 고칠 때 한 컴포넌트만 보면 됩니다.
-
-댓글 목록의 상태 세 가지 (`조건 && <JSX>`: 참일 때만 그림)
-
-| 상태 | 화면 |
-|---|---|
-| `postComments == null` (응답 전) | 댓글 로딩중... |
-| 빈 배열 | 댓글이 없습니다. |
-| 1개 이상 | `<ul>` 목록 |
+**① `Page`: 데이터를 준비하고 화면 조각을 배치 (222~280번 줄)**
 
 ```tsx
-{postComments.map((comment) => (
-  <li key={comment.id}>
-    ...
-    <button onClick={() => deleteComment(comment.id)}>삭제</button>
-  </li>
-))}
+227  const { id: idStr } = useParams<{ id: string }>();
+228  const id = Number(idStr);
 ```
 
-- `map`: 댓글 하나하나를 `<li>`로 바꾼 새 배열을 만듭니다.
-- `key`: React가 어떤 `<li>`가 어떤 댓글인지 구분하는 표식입니다. 추가·삭제 때 바뀐 줄만 다시 그립니다.
-- `onClick={() => deleteComment(comment.id)}`
-  - `onClick={deleteComment}` → 몇 번 댓글인지 전달할 수 없습니다.
-  - `onClick={deleteComment(comment.id)}` → 화면을 그리는 순간 바로 실행됩니다.
+- **[222]** `/posts/35`로 접속하면 Next.js가 이 파일의 `export default` 함수 `Page`를 실행합니다. 나머지 컴포넌트는 `Page`가 가져다 쓰는 부품입니다.
+- **[227]** 폴더 이름이 `[id]`이므로 `/posts/35`의 `35`가 `id`라는 이름으로 들어옵니다. 주소에서 꺼낸 값은 항상 **문자열**입니다.
+- **[227]** `{ id: idStr }`: 구조 분해하면서 이름을 `idStr`로 바꿉니다. `id`라는 이름은 숫자용으로 쓰기 위해서입니다.
+- **[228]** `Number("35")` → `35`. 백엔드 주소를 만들 때 숫자가 필요합니다.
+
+```tsx
+231  const { post, deletePost: _deletePost } = usePost(id);
+232  const {
+233    postComments,
+234    deleteComment: _deleteComment,
+235    writeComment,
+236  } = usePostComments(id);
+```
+
+- **[231]** `usePost`가 돌려준 `{ post, deletePost }`(훅의 33번 줄)에서 두 값을 꺼냅니다. `post`는 처음엔 `null`이고, 응답이 와서 `setPost`가 호출되면 React가 `Page`를 **처음부터 다시 실행**합니다.
+- **[231]** `deletePost: _deletePost`: 이름을 바꿔서 꺼냅니다. 241번 줄에서 확인창이 붙은 같은 이름의 함수를 새로 만들기 때문입니다.
+- **[232~236]** `usePostComments`가 돌려준 객체(훅의 93번 줄)에서 세 값을 꺼냅니다. **[234]** `deleteComment`도 254번 줄 때문에 `_deleteComment`로 이름을 바꿉니다.
+- **[231~236]** 훅은 238번 줄의 조기 `return`보다 **위에서** 호출합니다. React는 매번 같은 순서로 훅이 호출된다고 가정하고 state를 기억하기 때문입니다(7-1).
+
+```tsx
+238  if (post == null) return <div>로딩중...</div>;
+```
+
+- **[238]** 응답 전에는 로딩 표시만 그리고 끝냅니다. 이 줄 아래에서는 TypeScript도 `post`가 `null`이 아님을 알아서 243번 줄의 `post.id`를 쓸 수 있습니다.
+
+```tsx
+241  const deletePost = () => {
+243    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+245    _deletePost((data) => {
+246      alert(data.msg);
+249      router.replace("/posts");
+250    });
+251  };
+```
+
+- **[241]** 함수를 **만들어 두기만** 합니다. 실행은 `PostInfo`의 112번 줄 버튼을 누를 때입니다.
+- **[243]** 확인창. 취소를 누르면 `confirm`이 `false` → `return`으로 끝납니다.
+- **[245]** 231번 줄에서 꺼낸 훅 함수(DELETE 요청, **데이터** 일)를 호출하며 콜백을 넘깁니다.
+- **[246, 249]** 콜백 안: 알림을 띄우고 목록으로 이동합니다(**화면 반응** 일). 249번 줄의 `router`는 224번 줄에서 가져온 것입니다.
+- **[254~261]** `deleteComment`도 같은 구조입니다. 다만 이동 없이 알림만 띄웁니다. 목록에서 댓글이 빠지는 것은 훅(62번 줄)이 `filter`로 state를 바꿔서 처리합니다(8-1).
+
+```tsx
+268      <PostInfo post={post} deletePost={deletePost} />
+272      <PostCommentWriteAndList
+273        id={id}
+274        postComments={postComments}
+275        deleteComment={deleteComment}
+276        writeComment={writeComment}
+277      />
+```
+
+- **[268]** 태그처럼 보이지만 실제로는 `PostInfo({ post: post, deletePost: deletePost })`처럼 98번 줄의 **함수를 호출**하는 것입니다. 태그에 붙인 값들이 객체 하나(props)로 묶여 넘어갑니다.
+- **[268]** `post={post}`에서 왼쪽은 **받는 쪽이 쓸 이름**(99번 줄), 오른쪽 `{post}`는 **`Page`의 변수 값**(231번 줄)입니다.
+- **[268]** `deletePost={deletePost}`: 241번 줄 함수를 넘깁니다. `deletePost()`처럼 괄호를 붙이면 그 자리에서 실행되어 버립니다.
+- **[273~276]** 124번 줄 `PostCommentWriteAndList`에 네 값을 넘깁니다. 273번 줄은 228번 줄의 `id`, 274·276번 줄은 233·235번 줄의 훅 값, 275번 줄은 254번 줄에서 만든 함수입니다.
+
+**② `PostInfo`: 글 정보와 버튼 (98~121번 줄)**
+
+```tsx
+ 98  function PostInfo({
+ 99    post,
+100    deletePost,
+101  }: {
+102    post: PostDto;
+103    deletePost: () => void;
+104  }) {
+```
+
+- **[99~100]** props 구조 분해. `Page` 268번 줄에서 붙인 `post`, `deletePost`를 같은 이름으로 꺼냅니다.
+- **[101~104]** 콜론 뒤는 props 객체의 **타입**입니다.
+- **[102]** `post`가 `PostDto | null`이 아닌 이유: `Page`가 238번 줄에서 `null`을 걸러낸 뒤에만 이 컴포넌트를 그리기 때문입니다.
+- **[103]** `() => void`: 인자 없이 호출하고 아무것도 돌려주지 않는 함수. `Page` 241번 줄 함수의 모양입니다.
+- **[101~104]** 타입 덕분에 268번 줄에서 `deletePost`를 빠뜨리면 TypeScript가 바로 오류를 냅니다.
+
+```tsx
+107      <div>번호 : {post.id}</div>
+108      <div>제목 : {post.title}</div>
+109      <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
+112        <button ... onClick={deletePost}>
+115        <Link ... href={`/posts/${post.id}/edit`}>
+```
+
+- **[107~108]** JSX의 `{ }` 안에는 자바스크립트 값을 넣습니다. `{post.id}`는 `35`로 바뀌어 나옵니다.
+- **[109]** `whiteSpace: "pre-line"`: 내용 속 줄바꿈(`\n`)을 화면에서도 줄바꿈으로 보여 줍니다.
+- **[112]** `onClick={deletePost}`: 클릭되면 100번 줄에서 받은 함수, 즉 `Page` 241번 줄 함수를 실행합니다. `PostInfo`는 삭제 방법을 모르고 **버튼이 눌렸다는 사실만 전달**합니다.
+- **[115]** `Link`: 새로고침 없이 `/posts/35/edit`로 이동합니다(1-1).
+- **[106, 119]** `<> ... </>`(Fragment): 컴포넌트는 덩어리 하나만 `return`할 수 있어서, 화면에 태그를 남기지 않고 여러 요소를 묶습니다.
+
+**③ `PostCommentWriteAndList`: 댓글 작성 폼 + 목록 (124~220번 줄)**
+
+```tsx
+124  function PostCommentWriteAndList({
+125    id,
+126    postComments,
+127    deleteComment,
+128    writeComment,
+129  }: {
+130    id: number;
+131    postComments: PostCommentDto[] | null;
+132    deleteComment: (commentId: number) => void;
+133    writeComment: (
+134      content: string,
+135      onSuccess: (data: { msg: string }) => void,
+136    ) => void;
+137  }) {
+```
+
+| 줄 | prop | 타입 | 어디서 왔나 |
+|---|---|---|---|
+| 125, 130 | `id` | `number` | `Page` 273번 줄 ← 228번 줄 |
+| 126, 131 | `postComments` | `PostCommentDto[] \| null` | `Page` 274번 줄 ← 훅의 state |
+| 127, 132 | `deleteComment` | `(commentId: number) => void` | `Page` 275번 줄 ← 254번 줄 "확인창 + 삭제" 함수 |
+| 128, 133~136 | `writeComment` | `(content, onSuccess) => void` | `Page` 276번 줄 ← 훅의 72번 줄 함수 **그대로** |
+
+- **[131]** `postComments`에만 `| null`이 붙는 이유: `Page`는 238번 줄에서 글만 기다리고 댓글은 기다리지 않으므로, 댓글이 오기 전에 이 컴포넌트가 그려질 수 있습니다.
+- **[133~136]** 훅 72~75번 줄의 인자 모양과 똑같이 적어야 합니다. 이 중복을 10-3에서 없앱니다.
+
+```tsx
+139  const handleCommentWriteFormSubmit = (
+140    e: React.SyntheticEvent<HTMLFormElement>,
+141  ) => {
+142    e.preventDefault();
+144    const form = e.currentTarget;
+146    const contentTextarea = form.elements.namedItem(
+147      "content",
+148    ) as HTMLTextAreaElement;
+150    contentTextarea.value = contentTextarea.value.trim();
+152    if (contentTextarea.value.length === 0) { ... return; }
+158    if (contentTextarea.value.length < 2) { ... return; }
+164    writeComment(contentTextarea.value, (data) => {
+165      alert(data.msg);
+168      contentTextarea.value = "";
+169    });
+170  };
+```
+
+- **[139]** `Page`에서 옮겨 온 함수입니다. 178번 줄 폼의 `onSubmit`에 등록되어 있어서 폼이 제출되면 실행됩니다.
+- **[142]** 폼 기본 동작(새로고침하며 전송)을 막습니다.
+- **[144]** `e.currentTarget`: 이벤트가 걸린 `<form>`(176번 줄)입니다.
+- **[146~148]** `name="content"`인 입력칸(182번 줄)을 찾습니다. **두 이름이 맞아야** 합니다. `as HTMLTextAreaElement`로 textarea라고 알려 줘야 `.value`, `.focus()`를 쓸 수 있습니다.
+- **[150]** 앞뒤 공백을 지운 값을 입력칸에 다시 넣습니다.
+- **[152~156]** 빈 값이면 `alert` + `focus()` + `return`으로 멈춥니다.
+- **[158~162]** 2자 미만이면 멈춥니다. 백엔드 `@Size(min = 2)`와 같은 기준입니다.
+- **[164]** 128번 줄에서 받은 `writeComment`(실체는 훅의 72번 줄)를 호출합니다. 훅이 POST를 보내고 → 84번 줄에서 목록 끝에 새 댓글을 붙인 뒤 → 86번 줄에서 이 콜백을 실행합니다.
+- **[165, 168]** 콜백: 알림을 띄우고 입력칸을 비웁니다.
+- **[139~170]** 옮긴 이유: 이 컴포넌트의 폼에서만 쓰기 때문입니다. 쓰는 곳 가까이 두면 폼을 고칠 때 한 컴포넌트만 보면 됩니다.
+
+```tsx
+174      <h2>{id}번 글에 대한 댓글 작성</h2>
+176      <form
+177        className="flex gap-2 items-center"
+178        onSubmit={handleCommentWriteFormSubmit}
+182          name="content"
+184          maxLength={100}
+187        <button ... type="submit">
+```
+
+- **[174]** 125번 줄에서 받은 `id`를 씁니다. 이 값이 필요해서 `id`를 props로 받았습니다.
+- **[176~178]** 폼이 제출되면 139번 줄 함수를 실행합니다. `flex`는 가로 배치, `gap-2`는 간격, `items-center`는 세로 가운데 정렬입니다.
+- **[182]** 146~148번 줄의 `namedItem("content")`가 이 이름으로 찾습니다.
+- **[184]** 100자를 넘게 입력하지 못하게 합니다.
+- **[187]** `type="submit"` 버튼을 누르면 폼이 제출되고 → 178번 줄 `onSubmit` → 139번 줄 함수가 실행됩니다.
+
+```tsx
+196      {postComments == null && <div>댓글 로딩중...</div>}
+198      {postComments != null && postComments.length == 0 && (
+202      {postComments != null && postComments.length > 0 && (
+204          {postComments.map((comment) => (
+205            <li key={comment.id} className="flex gap-2 items-center">
+207              <span style={{ whiteSpace: "pre-line" }}>{comment.content}</span>
+210                onClick={() => deleteComment(comment.id)}
+```
+
+- **[196, 198, 202]** `조건 && <JSX>`: 조건이 참일 때만 그립니다. 세 조건 중 정확히 하나만 참입니다.
+
+| 줄 | 상태 | 화면 |
+|---|---|---|
+| 196 | `null` (응답 전) | 댓글 로딩중... |
+| 198 | 빈 배열 | 댓글이 없습니다. |
+| 202 | 1개 이상 | `<ul>` 목록 |
+
+- **[204]** `map`: 댓글 하나하나를 `<li>`로 바꾼 새 배열을 만듭니다.
+- **[205]** `key`: React가 어떤 `<li>`가 어떤 댓글인지 구분하는 표식입니다. 추가·삭제 때 바뀐 줄만 다시 그립니다.
+- **[210]** `onClick={() => deleteComment(comment.id)}`
+  - `onClick={deleteComment}`라면 → 몇 번 댓글인지 전달할 수 없습니다.
+  - `onClick={deleteComment(comment.id)}`라면 → 화면을 그리는 순간 바로 실행됩니다.
   - 그래서 "클릭되면 이 번호로 불러 줘"라는 **새 화살표 함수**로 감쌉니다. 댓글마다 하나씩 만들어지고 각자 자기 `comment.id`를 기억합니다.
 
-**④ 버튼을 누르면 일어나는 일**
+**④ 버튼을 누르면 실행되는 줄 순서**
 
 ```
 [글 삭제]
-PostInfo 삭제 버튼 → deletePost(Page가 만든 것) → confirm
-  → _deletePost(콜백) → usePost: DELETE /api/v1/posts/35
-  → 성공 → 콜백: alert → router.replace("/posts")
+112 PostInfo 삭제 버튼 → 241 Page의 deletePost → 243 confirm
+→ 245 _deletePost(콜백) → 훅 23~25 DELETE → 27 .then(onSuccess)
+→ 246 alert → 249 router.replace("/posts")
 
 [댓글 작성]
-PostCommentWriteAndList 폼 제출 → handleCommentWriteFormSubmit → 검사
-  → writeComment(내용, 콜백) → usePostComments: POST
-  → setPostComments([...기존, 새 댓글]) → Page 다시 실행 → 새 배열이 props로 내려감 → 목록 갱신
-  → 콜백: alert → 입력칸 비우기
+187 작성 버튼 → 178 onSubmit → 139 handleCommentWriteFormSubmit
+→ 142 preventDefault → 150 trim → 152·158 검사
+→ 164 writeComment → 훅 72~79 POST → 84 setPostComments([...기존, 새 댓글]) → 86 onSuccess
+→ 165 alert → 168 입력칸 비우기
+→ (84번 줄에서 state 변경) 222 Page 다시 실행 → 274 새 배열이 props로 → 204 map → 목록 갱신
 
 [댓글 삭제]
-() => deleteComment(34) → Page: confirm → _deleteComment(34, 콜백)
-  → usePostComments: DELETE → setPostComments(filter) → Page 다시 실행 → 목록에서 사라짐
-  → 콜백: alert
+210 () => deleteComment(34) → 254 Page의 deleteComment → confirm
+→ _deleteComment(34, 콜백) → 훅 51~57 DELETE → 62 filter → 64 onSuccess → alert
+→ 222 Page 다시 실행 → 274 줄어든 배열 → 204 map → 목록에서 사라짐
 ```
 
 - **데이터(state)는 위(`Page`, 훅)에 있고 props를 타고 아래로 내려갑니다.**
@@ -1142,10 +1244,10 @@ PostCommentWriteAndList 폼 제출 → handleCommentWriteFormSubmit → 검사
 
 | 코드 | 9-2 | 10-1 |
 |---|---|---|
-| 글 정보 JSX | `Page` | `PostInfo` |
-| 댓글 작성 폼·목록 JSX | `Page` | `PostCommentWriteAndList` |
-| `handleCommentWriteFormSubmit` | `Page` | `PostCommentWriteAndList` |
-| `deletePost`, `deleteComment` (확인창) | `Page` | `Page` (10-3에서 이동) |
+| 글 정보 JSX | `Page` 안 | `PostInfo` 105~120번 줄 |
+| 댓글 작성 폼·목록 JSX | `Page` 안 | `PostCommentWriteAndList` 172~219번 줄 |
+| `handleCommentWriteFormSubmit` | `Page` 안 | `PostCommentWriteAndList` 139~170번 줄 |
+| `deletePost`, `deleteComment` (확인창) | `Page` 안 | `Page` 241~261번 줄 (10-2에서 이동) |
 | 훅, 동작, 화면 | | 변화 없음 |
 
 **아쉬운 점** (다음 커밋에서 개선)
@@ -1175,99 +1277,178 @@ PostCommentWriteAndList 폼 제출 → handleCommentWriteFormSubmit → 검사
 
 #### 코드 상세 설명
 
-**① `Page`: 훅이 준 것을 가공하지 않고 그대로 넘긴다**
+> 줄 번호는 **10-2 커밋 시점의 `src/app/posts/[id]/page.tsx`** 기준입니다. 설명 앞의 **[숫자]** 가 그 설명이 가리키는 코드 줄입니다. 10-1 시점 줄 번호는 "10-1의 N번 줄"이라고 따로 적었습니다.
+
+**파일 지도**
+
+| 줄 | 무엇 | 10-2에서 |
+|---|---|---|
+| 10~34 | 훅 `usePost` | 변화 없음 |
+| 37~94 | 훅 `usePostComments` | 변화 없음 |
+| 98~138 | 컴포넌트 `PostInfo` | **`router`, `deletePost`가 들어옴** |
+| 141~250 | 컴포넌트 `PostCommentWriteAndList` | **`deleteComment`가 들어옴** |
+| 252~281 | `Page` | **짧아짐** |
+
+**① 훅이 돌려주는 함수의 모양 (변화 없음, 비교 기준)**
 
 ```tsx
-// 10-1: 이름을 바꿔 받고, 확인창이 붙은 함수를 새로 만들어 넘김
-const { post, deletePost: _deletePost } = usePost(id);
-const deletePost = () => { if (!confirm(...)) return; _deletePost(...); };
-<PostInfo post={post} deletePost={deletePost} />
-
-// 10-2: 받은 그대로 넘김
-const { post, deletePost } = usePost(id);
-const { postComments, deleteComment, writeComment } = usePostComments(id);
-<PostInfo post={post} deletePost={deletePost} />
+ 23  const deletePost = (onSuccess: (data: { msg: string }) => void) => {
+ 24    apiFetch(`/api/v1/posts/${id}`, {
+ 25      method: "DELETE",
+ 26    })
+ 27      .then(onSuccess)
+ 33  return { post, deletePost };
+ 51  const deleteComment = (
+ 52    commentId: number,
+ 53    onSuccess: (data: { msg: string }) => void,
+ 54  ) => {
+ 72  const writeComment = (
+ 73    content: string,
+ 74    onSuccess: (data: { msg: string }) => void,
+ 75  ) => {
+ 93  return { postComments, deleteComment, writeComment };
 ```
 
-- 태그 모양(`deletePost={deletePost}`)은 같지만 **넘어가는 함수가 다릅니다.**
-  - 10-1: `Page`가 만든 "확인창 + 삭제" 함수 (인자 없음)
-  - 10-2: 훅의 "DELETE 요청만 하는" 함수 (성공 콜백을 인자로 받음)
-- `Page`에서 `useRouter`, `_deletePost`, `_deleteComment`, 확인창 코드가 모두 빠졌습니다. 이제 `Page`가 하는 일은 **주소 읽기 → 훅 호출 → 로딩 처리 → 배치**뿐입니다.
+- **[23]** `usePost`의 `deletePost`는 **성공 콜백 하나**를 받습니다. 아래 103번 줄 타입과 모양이 같아야 합니다.
+- **[24~25]** DELETE 요청을 보냅니다. **[27]** 성공하면 받은 콜백을 실행합니다. 확인창은 훅에 **없습니다**.
+- **[33]** 이 객체가 `Page` 258번 줄로 갑니다.
+- **[51~54]** `deleteComment`는 **댓글 번호와 성공 콜백 두 개**를 받습니다. 아래 149~152번 줄 타입과 같아야 합니다.
+- **[72~75]** `writeComment`는 **내용과 성공 콜백**을 받습니다. 아래 153~156번 줄 타입과 같아야 합니다.
+- **[93]** 이 객체가 `Page` 259번 줄로 갑니다.
 
-**② `PostInfo`: 훅 함수를 받아서, 확인창을 붙인 함수를 직접 만든다**
+**② `Page`: 훅이 준 것을 가공하지 않고 그대로 넘긴다 (252~281번 줄)**
 
 ```tsx
-function PostInfo({
-  post,
-  deletePost: _deletePost,   // ① 받은 훅 함수를 _deletePost라는 이름으로 꺼냄
-}: {
-  post: PostDto;
-  deletePost: (onSuccess: (data: { msg: string }) => void) => void;   // ② 타입이 바뀜
-}) {
-  const router = useRouter();   // ③ 이동 도구를 여기서 가져옴
-
-  const deletePost = () => {    // ④ 버튼용 함수를 여기서 만듦
-    if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
-
-    _deletePost((data) => {
-      alert(data.msg);
-      router.replace("/posts");
-    });
-  };
-  ...
-  <button onClick={deletePost}>삭제</button>   // ⑤ 버튼은 ④를 실행
+254  const { id: idStr } = useParams<{ id: string }>();
+255  const id = Number(idStr);
+258  const { post, deletePost } = usePost(id);
+259  const { postComments, deleteComment, writeComment } = usePostComments(id);
+261  if (post == null) return <div>로딩중...</div>;
+269      <PostInfo post={post} deletePost={deletePost} />
+273      <PostCommentWriteAndList
+274        id={id}
+275        postComments={postComments}
+276        deleteComment={deleteComment}
+277        writeComment={writeComment}
+278      />
 ```
 
-- ① **props 구조 분해에서도 이름을 바꿀 수 있습니다.** `{ deletePost: _deletePost }`는 "props의 `deletePost`를 `_deletePost` 변수로 꺼내라"는 뜻입니다. 1-1에서 본 `{ id: idStr }`와 같은 문법입니다. 아래에서 버튼용 `deletePost`를 만들기 위해 이름을 비워 둡니다.
-- ② props 타입이 `() => void`에서 `(onSuccess: (data: { msg: string }) => void) => void`로 바뀌었습니다. 이제 훅 함수를 그대로 받기 때문에, **훅 함수의 모양**(성공 콜백 하나를 받는 함수)을 그대로 적어야 합니다.
-- ③ `useRouter()`도 훅입니다. 훅은 컴포넌트 함수의 **맨 위**에서 호출해야 합니다. `PostInfo`에는 조기 `return`이 없으므로 맨 위에 두면 됩니다. 이동이 필요 없어진 `Page`에서는 뺐습니다.
-- ④ 함수 본문은 10-1의 `Page`에 있던 것과 **완전히 같습니다.** 위치만 바뀌었습니다. 안에서 쓰는 `post`, `_deletePost`, `router`는 모두 `PostInfo` 안에 있는 변수입니다. 그래서 따로 넘겨받을 필요가 없습니다.
-- ⑤ 버튼 JSX는 그대로입니다. 다만 이제 `onClick`의 `deletePost`가 props가 아니라 **이 컴포넌트가 만든 함수**를 가리킵니다.
+- **[254~255]** 주소에서 `"35"`를 꺼내 숫자 `35`로 바꿉니다(10-1과 같음).
+- **[258]** 33번 줄 객체에서 `post`, `deletePost`를 꺼냅니다. **10-1의 231번 줄과 달리 이름을 바꾸지 않습니다**(`_deletePost` 없음). `Page`에서 같은 이름의 함수를 새로 만들지 않기 때문입니다.
+- **[259]** 93번 줄 객체에서 세 값을 꺼냅니다. 역시 이름을 바꾸지 않습니다.
+- **[261]** 글이 오기 전이면 로딩 표시만 그립니다.
+- **[269]** 태그 모양은 10-1의 268번 줄과 같지만 **넘어가는 함수가 다릅니다.**
+  - 10-1: 10-1의 241번 줄 "확인창 + 삭제" 함수 (인자 없음)
+  - 10-2: 훅의 23번 줄 "DELETE 요청만 하는" 함수 (성공 콜백을 인자로 받음)
+- **[276]** 훅의 51번 줄 함수를 그대로 넘깁니다. **[277]** 훅의 72번 줄 함수를 그대로 넘깁니다.
+- `Page`에서 빠진 것: **[10-1의 224]** `useRouter()` → 106번 줄로 이동, **[10-1의 241~251]** `deletePost` → 110~120번 줄로 이동, **[10-1의 254~261]** `deleteComment` → 159~166번 줄로 이동.
 
-**③ `PostCommentWriteAndList`: 같은 방식으로 `deleteComment`**
+**③ `PostInfo`: 훅 함수를 받아서, 확인창을 붙인 함수를 직접 만든다 (98~138번 줄)**
 
 ```tsx
-function PostCommentWriteAndList({
-  id,
-  postComments,
-  deleteComment: _deleteComment,
-  writeComment,
-}: {
-  ...
-  deleteComment: (
-    commentId: number,
-    onSuccess: (data: { msg: string }) => void,
-  ) => void;
-  ...
-}) {
-  const deleteComment = (commentId: number) => {
-    if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
-
-    _deleteComment(commentId, (data) => {
-      alert(data.msg);
-    });
-  };
-  ...
-  <button onClick={() => deleteComment(comment.id)}>삭제</button>
+ 98  function PostInfo({
+ 99    post,
+100    deletePost: _deletePost,
+101  }: {
+102    post: PostDto;
+103    deletePost: (onSuccess: (data: { msg: string }) => void) => void;
+104  }) {
+106    const router = useRouter();
+110    const deletePost = () => {
+112      if (!confirm(`${post.id}번 글을 정말로 삭제하시겠습니까?`)) return;
+114      _deletePost((data) => {
+115        alert(data.msg);
+118        router.replace("/posts");
+119      });
+120    };
+129          <button className="p-2 rounded border cursor-pointer" onClick={deletePost}>
 ```
 
-- props로 받은 훅 함수는 `_deleteComment`, 버튼용으로 만든 함수는 `deleteComment`입니다.
-- 목록 JSX의 `onClick={() => deleteComment(comment.id)}`는 손대지 않았습니다. 같은 이름의 함수가 이제 이 컴포넌트 안에서 만들어지기 때문입니다.
-- `writeComment`는 원래부터 훅 함수를 그대로 받아 `handleCommentWriteFormSubmit` 안에서 썼습니다. 그래서 바뀐 것이 없습니다. 이번 커밋으로 **세 함수 모두 "훅 함수를 받아서, 컴포넌트가 화면 반응을 붙여 쓴다"는 같은 방식**이 되었습니다.
+- **[99]** `Page` 269번 줄의 `post={post}`를 꺼냅니다.
+- **[100]** **props 구조 분해에서도 이름을 바꿀 수 있습니다.** `{ deletePost: _deletePost }`는 "props의 `deletePost`를 `_deletePost` 변수로 꺼내라"는 뜻입니다. 254번 줄의 `{ id: idStr }`와 같은 문법입니다. 110번 줄에서 버튼용 `deletePost`를 만들기 위해 이름을 비워 둡니다.
+- **[102]** `null`이 아닌 이유는 `Page` 261번 줄에서 이미 걸렀기 때문입니다.
+- **[103]** props 타입이 10-1의 103번 줄 `() => void`에서 `(onSuccess: ...) => void`로 바뀌었습니다. 이제 훅 함수를 그대로 받으므로 **훅 23번 줄의 모양**을 그대로 적어야 합니다.
+- **[106]** `useRouter()`도 훅이라서 컴포넌트 함수의 **맨 위**에서 호출합니다. `PostInfo`에는 조기 `return`이 없으니 맨 위에 두면 됩니다. 이동이 필요 없어진 `Page`에서는 뺐습니다.
+- **[110~120]** 버튼용 `deletePost`. 10-1의 241~251번 줄과 **내용이 완전히 같고** 위치만 바뀌었습니다. 안에서 쓰는 `post`(99번 줄), `_deletePost`(100번 줄), `router`(106번 줄)가 모두 `PostInfo` 안에 있어서 따로 넘겨받을 필요가 없습니다.
+- **[112]** 확인창. 취소하면 `return`으로 끝납니다.
+- **[114]** 100번 줄의 훅 함수를 호출하며 콜백(115~118번 줄)을 넘깁니다. → 훅 23번 줄 실행 → 27번 줄에서 콜백 호출.
+- **[115, 118]** 콜백: 알림 후 목록으로 이동합니다.
+- **[129]** 버튼 JSX는 10-1과 같습니다. 다만 `onClick`의 `deletePost`가 props(10-1)가 아니라 **110번 줄 함수**를 가리킵니다.
 
-**④ 버튼을 누르면 (10-1과 비교)**
+**④ `PostCommentWriteAndList`: 같은 방식으로 `deleteComment` (141~250번 줄)**
+
+```tsx
+141  function PostCommentWriteAndList({
+142    id,
+143    postComments,
+144    deleteComment: _deleteComment,
+145    writeComment,
+146  }: {
+149    deleteComment: (
+150      commentId: number,
+151      onSuccess: (data: { msg: string }) => void,
+152    ) => void;
+153    writeComment: (
+154      content: string,
+155      onSuccess: (data: { msg: string }) => void,
+156    ) => void;
+157  }) {
+159    const deleteComment = (commentId: number) => {
+160      if (!confirm(`${commentId}번 댓글을 정말로 삭제하시겠습니까?`)) return;
+163      _deleteComment(commentId, (data) => {
+164        alert(data.msg);
+165      });
+166    };
+194      writeComment(contentTextarea.value, (data) => {
+240                onClick={() => deleteComment(comment.id)}
+```
+
+- **[144]** props의 `deleteComment`(`Page` 276번 줄 → 실체는 훅 51번 줄)를 `_deleteComment`로 꺼냅니다.
+- **[145]** `writeComment`는 이름을 바꾸지 않습니다. 감싸는 함수를 만들지 않고 194번 줄에서 바로 쓰기 때문입니다.
+- **[149~152]** `_deleteComment`의 타입. **10-2에서 바뀐 부분**입니다(10-1의 132번 줄은 `(commentId: number) => void`). 훅 51~54번 줄과 같아야 합니다.
+- **[153~156]** `writeComment`의 타입. 10-1과 같습니다. 훅 72~75번 줄과 같아야 합니다.
+- **[159~166]** 버튼용 `deleteComment`. 10-1의 254~261번 줄과 내용이 같습니다.
+- **[160]** 확인창. **[163]** 144번 줄의 훅 함수를 호출하며 댓글 번호와 콜백을 넘깁니다. **[164]** 콜백: 알림.
+- **[194]** `handleCommentWriteFormSubmit`(169~200번 줄)은 변화 없습니다. 145번 줄에서 꺼낸 훅 함수를 그대로 부릅니다.
+- **[240]** 목록 버튼 코드는 손대지 않았습니다. 같은 이름의 `deleteComment`가 이제 159번 줄에서 만들어지므로 그 함수를 가리킵니다.
+- **[110, 159, 194]** 이번 커밋으로 세 함수 모두 **"훅 함수를 받아서, 컴포넌트가 화면 반응을 붙여 쓴다"는 같은 방식**이 되었습니다.
+
+**⑤ 버튼을 누르면 실행되는 줄 순서**
 
 ```
-[10-1] PostInfo 버튼 → (props로 받은) Page의 deletePost → confirm → usePost의 deletePost
-[10-2] PostInfo 버튼 → (PostInfo 안의) deletePost → confirm → (props로 받은) usePost의 deletePost
+[글 삭제]
+129 버튼 클릭 → 110 PostInfo의 deletePost → 112 confirm (취소면 끝)
+→ 114 _deletePost(콜백) → 훅 23 → 24~25 DELETE → 27 .then(onSuccess)
+→ 115 alert → 118 router.replace("/posts")
+
+[댓글 삭제]
+240 버튼 클릭 → () => deleteComment(34) → 159 deleteComment → 160 confirm
+→ 163 _deleteComment(34, 콜백) → 훅 51 → 55~56 DELETE → 62 filter → 64 onSuccess
+→ 164 alert
+→ (62번 줄에서 state 변경) 252 Page 다시 실행 → 259 → 275 줄어든 배열이 props로 → 234 map → 목록에서 사라짐
+```
+
+10-1과 비교하면 이렇습니다.
+
+```
+[10-1] 10-1의 112 버튼 → (props로 받은) 10-1의 241 Page.deletePost → confirm → 훅 23
+[10-2] 129 버튼 → (PostInfo 안의) 110 deletePost → 112 confirm → (props로 받은) 훅 23
 ```
 
 - 동작 순서와 결과(확인창 → DELETE → 알림 → 이동)는 같습니다. **확인창 코드가 어느 함수에 있느냐**만 다릅니다.
 
 **왜 옮기나?**
 
-- 삭제 버튼의 확인창 문구를 고치고 싶을 때 **버튼이 있는 컴포넌트만 열면** 됩니다. 버튼과 그 버튼의 반응이 한곳에 모입니다.
-- `Page`가 하위 컴포넌트를 위해 함수를 가공하지 않게 되었습니다. 덕분에 다음 커밋에서 훅 결과를 **통째로** 넘길 수 있습니다.
+- 삭제 버튼(129, 240번 줄)과 그 반응(110, 159번 줄)이 **같은 컴포넌트에** 모입니다. 확인창 문구를 고칠 때 그 컴포넌트만 열면 됩니다.
+- `Page`(258~259번 줄)가 함수를 가공하지 않게 되었으므로, 다음 커밋에서 훅 결과를 **통째로** 넘길 수 있습니다.
+
+**⑥ 중복된 타입** (10-3에서 해결)
+
+| 함수 | 훅 (원본) | 하위 컴포넌트 props 타입 (복사본) |
+|---|---|---|
+| `deletePost` | 23번 줄 | 103번 줄 |
+| `deleteComment` | 51~54번 줄 | 149~152번 줄 |
+| `writeComment` | 72~75번 줄 | 153~156번 줄 |
 
 **아쉬운 점** (10-3에서 개선)
 
